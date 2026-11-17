@@ -23,6 +23,9 @@ export type Service = {
   serviceArea?: string;
   technicianName: string;
   technicianEmail?: string;
+  /** Optional technician profile fields, when the API provides them. */
+  technicianImage?: string | null;
+  technicianBio?: string | null;
   approvalStatus: ApprovalStatus;
   isAvailable?: boolean;
   createdAt?: string;

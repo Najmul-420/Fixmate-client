@@ -63,6 +63,35 @@ export async function getFeaturedServices(limit = 6): Promise<Service[]> {
   return sortServices(services, "newest").slice(0, limit);
 }
 
+/**
+ * Fetches a single service by id for the details page.
+ * Returns `null` when the service does not exist, is not approved,
+ * is unavailable, or the backend is unreachable — callers render notFound().
+ */
+export async function getServiceById(id: string): Promise<Service | null> {
+  try {
+    const res = await fetch(`${API_BASE}/api/services/${id}`, {
+      headers: { "Content-Type": "application/json" },
+      cache: "no-store",
+      signal: AbortSignal.timeout(4_000),
+    });
+    if (!res.ok) return null;
+
+    const payload: unknown = await res.json();
+    const service = (
+      Array.isArray(payload) ? undefined : (payload as { data?: Service }).data
+    ) ?? (payload as Service);
+
+    if (!service?._id) return null;
+    if (service.approvalStatus !== "approved") return null;
+    if (service.isAvailable === false) return null;
+    return service;
+  } catch (error) {
+    console.warn("[FixMate] Services API unavailable:", error);
+    return null;
+  }
+}
+
 /** Defensive client-side sorting (mirrors the backend `sort` contract). */
 export function sortServices(services: Service[], sort?: string): Service[] {
   const sorted = [...services];

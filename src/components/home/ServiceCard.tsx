@@ -8,15 +8,8 @@ import {
   Timer,
   User,
 } from "lucide-react";
+import { formatPrice } from "@/lib/format";
 import type { Service } from "@/lib/types";
-
-function formatPrice(amount: number) {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    maximumFractionDigits: 0,
-  }).format(amount);
-}
 
 export default function ServiceCard({ service }: { service: Service }) {
   return (
