@@ -6,6 +6,7 @@ import type {
   Payment,
   Service,
 } from "./types";
+import type { UserRole } from "./auth-client";
 
 /**
  * Base URL of the FixMate Express backend.
@@ -268,6 +269,29 @@ export async function createCheckoutSession(
 export async function fetchUsers(): Promise<AdminUser[]> {
   const users = await fetchList<AdminUser>("/api/users", "Users API");
   return users.filter((user) => Boolean(user?._id));
+}
+
+/**
+ * Changes a user's role (admin action). PATCHes the user record.
+ * Returns true when the backend confirms the change.
+ */
+export async function updateUserRole(
+  userId: string,
+  role: UserRole
+): Promise<boolean> {
+  try {
+    const res = await fetch(`${API_BASE}/api/users/${userId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      signal: AbortSignal.timeout(8_000),
+      body: JSON.stringify({ role }),
+    });
+    return res.ok;
+  } catch (error) {
+    console.warn("[FixMate] Role update failed:", error);
+    return false;
+  }
 }
 
 /**

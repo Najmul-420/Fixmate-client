@@ -20,6 +20,7 @@ import { cn } from "@/lib/utils";
 const publicLinks = [
   { label: "Home", href: "/" },
   { label: "Services", href: "/services" },
+  { label: "How it Works", href: "/#how-it-works" },
   { label: "About", href: "/about" },
 ];
 

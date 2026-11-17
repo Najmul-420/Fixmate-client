@@ -30,7 +30,7 @@ function XLogo({ className }: { className?: string }) {
 
 export default function Footer() {
   return (
-    <footer className="bg-[#111827] text-gray-300">
+    <footer className="border-t border-[#E5E7EB] bg-[#F3F4F6] text-gray-600 dark:border-white/10 dark:bg-[#111827] dark:text-gray-400">
       <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 gap-10 sm:grid-cols-2 lg:grid-cols-4">
           {/* Brand & tagline */}
@@ -39,11 +39,11 @@ export default function Footer() {
               <span className="flex size-9 items-center justify-center rounded-lg bg-[#059669] text-white">
                 <Wrench className="size-5" />
               </span>
-              <span className="text-xl font-bold tracking-tight text-gray-400">
-                Fix<span className="text-[#34d399]">Mate</span>
+              <span className="text-xl font-bold tracking-tight text-[#111827] dark:text-[#F9FAFB]">
+                Fix<span className="text-[#059669] dark:text-[#34d399]">Mate</span>
               </span>
             </Link>
-            <p className="max-w-xs text-sm leading-relaxed text-gray-400">
+            <p className="max-w-xs text-sm leading-relaxed text-gray-600 dark:text-gray-400">
               Your trusted partner for smart device and home appliance repairs.
               Verified technicians, transparent pricing, and pay-after-service
               convenience.
@@ -53,7 +53,7 @@ export default function Footer() {
               target="_blank"
               rel="noopener noreferrer"
               aria-label="FixMate on X (Twitter)"
-              className="inline-flex size-9 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-gray-400 transition-colors hover:bg-[#059669] hover:text-white"
+              className="inline-flex size-9 items-center justify-center rounded-lg border border-[#D1D5DB] bg-white text-gray-500 transition-colors hover:bg-[#059669] hover:text-white dark:border-white/10 dark:bg-white/5 dark:text-gray-400"
             >
               <XLogo className="size-4" />
             </a>
@@ -61,7 +61,7 @@ export default function Footer() {
 
           {/* Quick links */}
           <div>
-            <h3 className="text-sm font-semibold tracking-wider text-white uppercase">
+            <h3 className="text-sm font-semibold uppercase tracking-wider text-[#111827] dark:text-white">
               Quick Links
             </h3>
             <ul className="mt-4 space-y-2.5">
@@ -69,7 +69,7 @@ export default function Footer() {
                 <li key={link.label}>
                   <Link
                     href={link.href}
-                    className="text-sm text-gray-400 transition-colors hover:text-white"
+                    className="text-sm text-gray-600 transition-colors hover:text-[#059669] dark:text-gray-400 dark:hover:text-[#34D399]"
                   >
                     {link.label}
                   </Link>
@@ -80,7 +80,7 @@ export default function Footer() {
 
           {/* Categories */}
           <div>
-            <h3 className="text-sm font-semibold tracking-wider text-white uppercase">
+            <h3 className="text-sm font-semibold uppercase tracking-wider text-[#111827] dark:text-white">
               Categories
             </h3>
             <ul className="mt-4 space-y-2.5">
@@ -88,7 +88,7 @@ export default function Footer() {
                 <li key={category.label}>
                   <Link
                     href={category.href}
-                    className="text-sm text-gray-400 transition-colors hover:text-white"
+                    className="text-sm text-gray-600 transition-colors hover:text-[#059669] dark:text-gray-400 dark:hover:text-[#34D399]"
                   >
                     {category.label}
                   </Link>
@@ -99,23 +99,23 @@ export default function Footer() {
 
           {/* Contact info */}
           <div>
-            <h3 className="text-sm font-semibold tracking-wider text-white uppercase">
+            <h3 className="text-sm font-semibold uppercase tracking-wider text-[#111827] dark:text-white">
               Contact Us
             </h3>
             <ul className="mt-4 space-y-3">
               <li className="flex items-start gap-3">
-                <Phone className="mt-0.5 size-4 shrink-0 text-gray-500" />
-                <span className="text-sm text-gray-400">+880 1XXX-XXXXXX</span>
+                <Phone className="mt-0.5 size-4 shrink-0 text-[#059669] dark:text-[#34D399]" />
+                <span className="text-sm text-gray-600 dark:text-gray-400">+880 1XXX-XXXXXX</span>
               </li>
               <li className="flex items-start gap-3">
-                <Mail className="mt-0.5 size-4 shrink-0 text-gray-500" />
-                <span className="text-sm text-gray-400">
+                <Mail className="mt-0.5 size-4 shrink-0 text-[#059669] dark:text-[#34D399]" />
+                <span className="text-sm text-gray-600 dark:text-gray-400">
                   support@fixmate.com
                 </span>
               </li>
               <li className="flex items-start gap-3">
-                <MapPin className="mt-0.5 size-4 shrink-0 text-gray-500" />
-                <span className="text-sm text-gray-400">
+                <MapPin className="mt-0.5 size-4 shrink-0 text-[#059669] dark:text-[#34D399]" />
+                <span className="text-sm text-gray-600 dark:text-gray-400">
                   Dhaka, Bangladesh
                 </span>
               </li>
@@ -125,7 +125,7 @@ export default function Footer() {
       </div>
 
       {/* Copyright bar */}
-      <div className="border-t border-white/10">
+      <div className="border-t border-[#E5E7EB] dark:border-white/10">
         <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-2 px-4 py-6 text-center sm:flex-row sm:px-6 sm:text-left lg:px-8">
           <p className="text-xs text-gray-500">
             <CopyrightYear />

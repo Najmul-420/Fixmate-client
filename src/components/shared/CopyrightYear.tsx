@@ -13,5 +13,3 @@ export default function CopyrightYear() {
   return <span>© {year ? `${year} ` : ""}FixMate. All rights reserved.</span>;
 }
 
-
-// Customer Bookings & Payment History
