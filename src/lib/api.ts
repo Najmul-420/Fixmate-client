@@ -1,6 +1,8 @@
 import type {
   AdminUser,
+  ApprovalStatus,
   Booking,
+  BookingStatus,
   Payment,
   Service,
 } from "./types";
@@ -112,6 +114,99 @@ export async function fetchBookings(scope: {
   );
   // Defensive: only return well-formed bookings.
   return bookings.filter((booking) => Boolean(booking?._id));
+}
+
+/**
+ * Creates a new service (technician action). Starts as `pending` approval
+ * server-side. Returns the created service, or `null` on failure.
+ */
+export async function createService(
+  input: Omit<Service, "_id" | "approvalStatus"> & { approvalStatus?: ApprovalStatus }
+): Promise<Service | null> {
+  try {
+    const res = await fetch(`${API_BASE}/api/services`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      signal: AbortSignal.timeout(8_000),
+      body: JSON.stringify(input),
+    });
+    if (!res.ok) return null;
+
+    const payload: unknown = await res.json();
+    const service = (
+      Array.isArray(payload) ? undefined : (payload as { data?: Service }).data
+    ) ?? (payload as Service);
+    return service?._id ? service : null;
+  } catch (error) {
+    console.warn("[FixMate] Create service failed:", error);
+    return null;
+  }
+}
+
+/**
+ * Updates a service (technician edit / availability toggle). Accepts a
+ * partial patch. Returns true when the backend confirms.
+ */
+export async function updateService(
+  serviceId: string,
+  patch: Partial<Service>
+): Promise<boolean> {
+  try {
+    const res = await fetch(`${API_BASE}/api/services/${serviceId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      signal: AbortSignal.timeout(8_000),
+      body: JSON.stringify(patch),
+    });
+    return res.ok;
+  } catch (error) {
+    console.warn("[FixMate] Update service failed:", error);
+    return false;
+  }
+}
+
+/** Deletes a service (technician action). Returns true when confirmed. */
+export async function deleteService(serviceId: string): Promise<boolean> {
+  try {
+    const res = await fetch(`${API_BASE}/api/services/${serviceId}`, {
+      method: "DELETE",
+      credentials: "include",
+      signal: AbortSignal.timeout(8_000),
+    });
+    return res.ok;
+  } catch (error) {
+    console.warn("[FixMate] Delete service failed:", error);
+    return false;
+  }
+}
+
+/**
+ * Advances a booking through the job status pipeline (technician action):
+ * requested -> accepted/rejected, accepted -> in-progress,
+ * in-progress -> completed (+ finalAmount > 0).
+ */
+export async function updateBookingStatus(
+  bookingId: string,
+  status: BookingStatus,
+  finalAmount?: number
+): Promise<boolean> {
+  try {
+    const res = await fetch(`${API_BASE}/api/bookings/${bookingId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      signal: AbortSignal.timeout(8_000),
+      body: JSON.stringify(
+        status === "completed" ? { status, finalAmount } : { status }
+      ),
+    });
+    return res.ok;
+  } catch (error) {
+    console.warn("[FixMate] Booking status update failed:", error);
+    return false;
+  }
 }
 
 /** All Stripe payment records (customer history / admin transactions). */

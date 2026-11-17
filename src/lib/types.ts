@@ -11,6 +11,19 @@ export type ServiceCategory =
 
 export type ServiceMode = "Home Visit" | "Shop Drop-off";
 
+/** Runtime lists for dropdowns / segmented controls. */
+export const SERVICE_CATEGORIES: ServiceCategory[] = [
+  "Smartphone",
+  "Laptop & PC",
+  "AC",
+  "Refrigerator",
+  "TV",
+  "Washing Machine",
+  "Electrical",
+];
+
+export const SERVICE_MODES: ServiceMode[] = ["Home Visit", "Shop Drop-off"];
+
 export type ApprovalStatus = "pending" | "approved" | "rejected";
 
 export type Service = {

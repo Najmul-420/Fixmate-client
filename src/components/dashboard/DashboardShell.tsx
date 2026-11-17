@@ -40,7 +40,7 @@ const navByRole: Record<UserRole, NavItem[]> = {
   technician: [
     { label: "Overview", href: "/dashboard/technician", icon: LayoutDashboard },
     { label: "Add Service", href: "/dashboard/technician/add-service", icon: PlusCircle },
-    { label: "My Services", href: "/dashboard/technician/services", icon: FolderOpen },
+    { label: "My Services", href: "/dashboard/technician/my-services", icon: FolderOpen },
     { label: "Manage Requests", href: "/dashboard/technician/requests", icon: ClipboardList },
   ],
   admin: [

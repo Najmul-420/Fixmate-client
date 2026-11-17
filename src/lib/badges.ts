@@ -1,5 +1,5 @@
 import type { UserRole } from "./auth-client";
-import type { BookingStatus } from "./types";
+import type { ApprovalStatus, BookingStatus } from "./types";
 
 /**
  * Shared role badge styling (used by the Navbar and the Dashboard topbar)
@@ -44,4 +44,12 @@ export const bookingStatusStyles: Record<BookingStatus, string> = {
 export const paymentStatusStyles: Record<"paid" | "unpaid", string> = {
   paid: "bg-[#059669]/10 text-[#059669] dark:bg-[#10B981]/20 dark:text-[#34D399]",
   unpaid: "bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-400",
+};
+
+/** Badge styling per service approval status (admin moderation). */
+export const approvalStatusStyles: Record<ApprovalStatus, string> = {
+  pending: "bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-400",
+  approved:
+    "bg-[#059669]/10 text-[#059669] dark:bg-[#10B981]/20 dark:text-[#34D399]",
+  rejected: "bg-red-100 text-red-700 dark:bg-red-500/15 dark:text-red-400",
 };
