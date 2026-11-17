@@ -6,3 +6,15 @@ export function formatPrice(amount: number) {
     maximumFractionDigits: 0,
   }).format(amount);
 }
+
+/** Formats an ISO date string for display, e.g. "Nov 18, 2026". */
+export function formatDate(iso?: string | null) {
+  if (!iso) return "—";
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "—";
+  return new Intl.DateTimeFormat("en-US", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  }).format(date);
+}

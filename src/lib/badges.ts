@@ -32,10 +32,16 @@ export const bookingStatusStyles: Record<BookingStatus, string> = {
   requested:
     "bg-[#2563EB]/10 text-[#2563EB] dark:bg-[#2563EB]/20 dark:text-[#60A5FA]",
   accepted:
-    "bg-[#059669]/10 text-[#059669] dark:bg-[#10B981]/20 dark:text-[#34D399]",
+    "bg-indigo-100 text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-400",
   rejected: "bg-red-100 text-red-700 dark:bg-red-500/15 dark:text-red-400",
   "in-progress": "bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-400",
   completed:
-    "bg-violet-100 text-violet-700 dark:bg-violet-500/15 dark:text-violet-400",
+    "bg-[#059669]/10 text-[#059669] dark:bg-[#10B981]/20 dark:text-[#34D399]",
   cancelled: "bg-muted text-muted-foreground",
+};
+
+/** Badge styling per payment status. */
+export const paymentStatusStyles: Record<"paid" | "unpaid", string> = {
+  paid: "bg-[#059669]/10 text-[#059669] dark:bg-[#10B981]/20 dark:text-[#34D399]",
+  unpaid: "bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-400",
 };

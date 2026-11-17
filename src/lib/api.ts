@@ -120,6 +120,55 @@ export async function fetchPayments(): Promise<Payment[]> {
   return payments.filter((payment) => Boolean(payment?._id));
 }
 
+/**
+ * Cancels a pending booking (customer action, only valid while the job is
+ * still `requested`). PATCHes the status server-side.
+ */
+export async function cancelBooking(bookingId: string): Promise<boolean> {
+  try {
+    const res = await fetch(`${API_BASE}/api/bookings/${bookingId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      signal: AbortSignal.timeout(8_000),
+      body: JSON.stringify({ status: "cancelled" }),
+    });
+    return res.ok;
+  } catch (error) {
+    console.warn("[FixMate] Booking cancel failed:", error);
+    return false;
+  }
+}
+
+/**
+ * Starts a Stripe Checkout session for a completed-but-unpaid booking.
+ * Returns the hosted checkout URL, or `null` when the backend is
+ * unreachable / refuses (callers surface an error, never a fake success).
+ */
+export async function createCheckoutSession(
+  bookingId: string
+): Promise<string | null> {
+  try {
+    const res = await fetch(`${API_BASE}/api/payments/create-checkout-session`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      signal: AbortSignal.timeout(8_000),
+      body: JSON.stringify({ bookingId }),
+    });
+    if (!res.ok) return null;
+
+    const payload: unknown = await res.json();
+    const url =
+      (payload as { url?: unknown } | null)?.url ??
+      (payload as { data?: { url?: unknown } } | null)?.data?.url;
+    return typeof url === "string" && url.startsWith("http") ? url : null;
+  } catch (error) {
+    console.warn("[FixMate] Checkout session failed:", error);
+    return null;
+  }
+}
+
 /** All platform users (admin "Manage Users" + overview counts). */
 export async function fetchUsers(): Promise<AdminUser[]> {
   const users = await fetchList<AdminUser>("/api/users", "Users API");
