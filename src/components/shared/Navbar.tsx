@@ -12,7 +12,7 @@ import {
   Wrench,
   X,
 } from "lucide-react";
-import { authClient, useSession, type FixMateUser, type UserRole } from "@/lib/auth-client";
+import { authClient, getDashboardPath, useSession, type FixMateUser, type UserRole } from "@/lib/auth-client";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -29,17 +29,6 @@ const roleBadgeStyles: Record<UserRole, string> = {
     "bg-[#059669]/10 text-[#059669] dark:bg-[#10B981]/20 dark:text-[#34D399]",
   admin: "bg-violet-100 text-violet-700 dark:bg-violet-500/15 dark:text-violet-400",
 };
-
-function getDashboardPath(role?: UserRole | null) {
-  switch (role) {
-    case "technician":
-      return "/dashboard/technician";
-    case "admin":
-      return "/dashboard/admin";
-    default:
-      return "/dashboard/customer";
-  }
-}
 
 function getInitials(name?: string | null) {
   if (!name) return "U";
