@@ -13,6 +13,7 @@ import {
   X,
 } from "lucide-react";
 import { authClient, getDashboardPath, useSession, type FixMateUser, type UserRole } from "@/lib/auth-client";
+import { roleBadgeStyles } from "@/lib/badges";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -21,14 +22,6 @@ const publicLinks = [
   { label: "Services", href: "/services" },
   { label: "About", href: "/about" },
 ];
-
-const roleBadgeStyles: Record<UserRole, string> = {
-  customer:
-    "bg-[#2563EB]/10 text-[#2563EB] dark:bg-[#2563EB]/20 dark:text-[#60A5FA]",
-  technician:
-    "bg-[#059669]/10 text-[#059669] dark:bg-[#10B981]/20 dark:text-[#34D399]",
-  admin: "bg-violet-100 text-violet-700 dark:bg-violet-500/15 dark:text-violet-400",
-};
 
 function getInitials(name?: string | null) {
   if (!name) return "U";

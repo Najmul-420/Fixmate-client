@@ -1,10 +1,44 @@
-import type { Service } from "./types";
+import type {
+  AdminUser,
+  Booking,
+  Payment,
+  Service,
+} from "./types";
 
 /**
  * Base URL of the FixMate Express backend.
  * Configure NEXT_PUBLIC_API_BASE_URL in .env (defaults to the local dev server).
  */
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:5000";
+
+/**
+ * Extracts an array from a backend payload whether it responds with a bare
+ * array or an envelope like `{ data: [...] }`.
+ */
+function toArray<T>(payload: unknown): T[] {
+  if (Array.isArray(payload)) return payload as T[];
+  const data = (payload as { data?: unknown } | null)?.data;
+  return Array.isArray(data) ? (data as T[]) : [];
+}
+
+/** Unified GET helper: fails fast (4s) and always resolves to an array. */
+async function fetchList<T>(path: string, warnLabel: string): Promise<T[]> {
+  try {
+    const res = await fetch(`${API_BASE}${path}`, {
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      cache: "no-store",
+      // Fail fast when the backend is not running instead of hanging the page.
+      signal: AbortSignal.timeout(4_000),
+    });
+    if (!res.ok) return [];
+    const payload: unknown = await res.json();
+    return toArray<T>(payload);
+  } catch (error) {
+    console.warn(`[FixMate] ${warnLabel} unavailable:`, error);
+    return [];
+  }
+}
 
 export type ServiceQuery = {
   search?: string;
@@ -55,6 +89,57 @@ export async function fetchApprovedServices(
     console.warn("[FixMate] Services API unavailable:", error);
     return [];
   }
+}
+
+/**
+ * All bookings, optionally scoped to one customer or technician.
+ * Intended backend contract:
+ *   GET /api/bookings                     (admin)
+ *   GET /api/bookings?customerEmail=...   (customer)
+ *   GET /api/bookings?technicianEmail=... (technician)
+ */
+export async function fetchBookings(scope: {
+  customerEmail?: string;
+  technicianEmail?: string;
+} = {}): Promise<Booking[]> {
+  const params = new URLSearchParams();
+  if (scope.customerEmail) params.set("customerEmail", scope.customerEmail);
+  if (scope.technicianEmail) params.set("technicianEmail", scope.technicianEmail);
+  const qs = params.toString();
+  const bookings = await fetchList<Booking>(
+    `/api/bookings${qs ? `?${qs}` : ""}`,
+    "Bookings API"
+  );
+  // Defensive: only return well-formed bookings.
+  return bookings.filter((booking) => Boolean(booking?._id));
+}
+
+/** All Stripe payment records (customer history / admin transactions). */
+export async function fetchPayments(): Promise<Payment[]> {
+  const payments = await fetchList<Payment>("/api/payments", "Payments API");
+  return payments.filter((payment) => Boolean(payment?._id));
+}
+
+/** All platform users (admin "Manage Users" + overview counts). */
+export async function fetchUsers(): Promise<AdminUser[]> {
+  const users = await fetchList<AdminUser>("/api/users", "Users API");
+  return users.filter((user) => Boolean(user?._id));
+}
+
+/**
+ * Fetches services without filtering by approval, optionally scoped to one
+ * technician — used by the technician dashboard ("My Services") and the
+ * admin overview ("Total Services").
+ *   GET /api/services?technicianEmail=...
+ */
+export async function fetchServices(scope: { technicianEmail?: string } = {}): Promise<Service[]> {
+  const params = new URLSearchParams();
+  if (scope.technicianEmail) params.set("technicianEmail", scope.technicianEmail);
+  const services = await fetchList<Service>(
+    `/api/services${params.toString() ? `?${params}` : ""}`,
+    "Services API"
+  );
+  return services.filter((service) => Boolean(service?._id));
 }
 
 /** Home page shortcut: latest N approved services (newest first). */

@@ -1,8 +1,6 @@
 import type { Metadata } from "next";
-import { Suspense } from "react";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Toaster } from "sonner";
-import Navbar from "@/components/shared/Navbar";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -57,11 +55,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
       </head>
-      <body className="min-h-full flex flex-col">
-        <Suspense fallback={<div className="sticky top-0 z-50 h-16 border-b bg-background" />}>
-          <Navbar />
-        </Suspense>
-        <main className="flex-1">{children}</main>
+      <body className="min-h-full flex flex-col">{children}
         <Toaster position="top-right" richColors />
       </body>
     </html>
