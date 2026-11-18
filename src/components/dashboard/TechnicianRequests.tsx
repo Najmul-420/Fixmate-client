@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   CircleCheck,
   ClipboardList,
@@ -10,11 +10,13 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { useSession } from "@/lib/auth-client";
-import { fetchBookings, updateBookingStatus } from "@/lib/api";
+import { fetchBookings } from "@/lib/api";
+import { simulateRequest } from "@/lib/placeholder";
 import { formatDate, formatPrice } from "@/lib/format";
 import type { Booking, BookingStatus } from "@/lib/types";
 import StatusBadge from "@/components/dashboard/StatusBadge";
 import EmptyState from "@/components/shared/EmptyState";
+import Modal from "@/components/shared/Modal";
 
 const FILTERS: { value: BookingStatus | "all"; label: string }[] = [
   { value: "all", label: "All" },
@@ -33,6 +35,9 @@ const inputClasses =
  * Technician "Manage Requests": incoming bookings with a status filter and
  * pipeline actions — Accept/Reject (requested), Start Work (accepted),
  * Mark Completed with a final-amount modal (in-progress).
+ *
+ * All mutations update local state through placeholder handlers until the
+ * Express API is connected.
  */
 export default function TechnicianRequests() {
   const { data: session, isPending } = useSession();
@@ -42,20 +47,13 @@ export default function TechnicianRequests() {
   const [filter, setFilter] = useState<BookingStatus | "all">("all");
   const [busyId, setBusyId] = useState<string | null>(null);
 
+  // Reject confirmation state
+  const [rejecting, setRejecting] = useState<Booking | null>(null);
+
   // Complete modal state
   const [completing, setCompleting] = useState<Booking | null>(null);
   const [finalAmount, setFinalAmount] = useState("");
   const [amountError, setAmountError] = useState("");
-
-  const loadBookings = useCallback(async (technicianEmail: string) => {
-    const list = await fetchBookings({ technicianEmail });
-    setBookings(
-      [...list].sort(
-        (a, b) =>
-          new Date(b.createdAt ?? 0).getTime() - new Date(a.createdAt ?? 0).getTime()
-      )
-    );
-  }, []);
 
   useEffect(() => {
     if (!email) return;
@@ -75,15 +73,47 @@ export default function TechnicianRequests() {
     };
   }, [email]);
 
-  const setStatus = async (booking: Booking, status: BookingStatus) => {
+  const patchBooking = (id: string, patch: Partial<Booking>) => {
+    setBookings((prev) =>
+      prev ? prev.map((item) => (item._id === id ? { ...item, ...patch } : item)) : prev
+    );
+  };
+
+  const acceptRequest = async (booking: Booking) => {
     setBusyId(booking._id);
-    const ok = await updateBookingStatus(booking._id, status);
-    setBusyId(null);
-    if (ok) {
-      toast.success(`Request ${status === "in-progress" ? "started" : status}.`);
-      if (email) loadBookings(email);
-    } else {
-      toast.error("Could not update the booking. Please try again.");
+    try {
+      // TODO: Connect API — PATCH /api/bookings/:id { status: "accepted" }
+      await simulateRequest(300);
+      patchBooking(booking._id, { status: "accepted" });
+      toast.success(`Request accepted — ${booking.serviceTitle}.`);
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const startWork = async (booking: Booking) => {
+    setBusyId(booking._id);
+    try {
+      // TODO: Connect API — PATCH /api/bookings/:id { status: "in-progress" }
+      await simulateRequest(300);
+      patchBooking(booking._id, { status: "in-progress" });
+      toast.success("Job started. You can finish it when the repair is done.");
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const handleRejectConfirmed = async () => {
+    if (!rejecting) return;
+    setBusyId(rejecting._id);
+    try {
+      // TODO: Connect API — PATCH /api/bookings/:id { status: "rejected" }
+      await simulateRequest(350);
+      patchBooking(rejecting._id, { status: "rejected" });
+      toast.success("Request rejected. The customer can book someone else.");
+      setRejecting(null);
+    } finally {
+      setBusyId(null);
     }
   };
 
@@ -101,14 +131,18 @@ export default function TechnicianRequests() {
       return;
     }
     setBusyId(completing._id);
-    const ok = await updateBookingStatus(completing._id, "completed", amount);
-    setBusyId(null);
-    setCompleting(null);
-    if (ok) {
-      toast.success("Job marked as completed.");
-      if (email) loadBookings(email);
-    } else {
-      toast.error("Could not complete the job. Please try again.");
+    try {
+      // TODO: Connect API — PATCH /api/bookings/:id { status: "completed", finalAmount }
+      await simulateRequest(450);
+      patchBooking(completing._id, {
+        status: "completed",
+        finalAmount: amount,
+        paymentStatus: "unpaid",
+      });
+      toast.success("Job marked as completed. The customer can pay now.");
+      setCompleting(null);
+    } finally {
+      setBusyId(null);
     }
   };
 
@@ -138,7 +172,11 @@ export default function TechnicianRequests() {
       </div>
 
       {/* Status filter tabs */}
-      <div className="flex flex-wrap gap-2" role="tablist" aria-label="Filter by status">
+      <div
+        className="flex flex-wrap gap-2"
+        role="tablist"
+        aria-label="Filter by status"
+      >
         {FILTERS.map((option) => {
           const active = filter === option.value;
           const count =
@@ -154,7 +192,7 @@ export default function TechnicianRequests() {
               onClick={() => setFilter(option.value)}
               className={
                 active
-                  ? "inline-flex items-center gap-1.5 rounded-full bg-primary px-3.5 py-1.5 text-xs font-semibold text-primary-foreground"
+                  ? "inline-flex items-center gap-1.5 rounded-full bg-primary px-3.5 py-1.5 text-xs font-semibold text-primary-foreground transition-colors"
                   : "inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-xs font-semibold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
               }
             >
@@ -183,6 +221,11 @@ export default function TechnicianRequests() {
             filter === "all"
               ? "When customers request your services, they will appear here."
               : "Try another status filter, or clear the filter to see all requests."
+          }
+          action={
+            filter === "all"
+              ? undefined
+              : { label: "Show all requests", onClick: () => setFilter("all") }
           }
         />
       ) : (
@@ -234,7 +277,7 @@ export default function TechnicianRequests() {
                           <>
                             <button
                               type="button"
-                              onClick={() => setStatus(booking, "accepted")}
+                              onClick={() => acceptRequest(booking)}
                               disabled={busyId === booking._id}
                               className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:pointer-events-none disabled:opacity-60"
                             >
@@ -242,7 +285,7 @@ export default function TechnicianRequests() {
                             </button>
                             <button
                               type="button"
-                              onClick={() => setStatus(booking, "rejected")}
+                              onClick={() => setRejecting(booking)}
                               disabled={busyId === booking._id}
                               className="inline-flex items-center gap-1.5 rounded-lg border border-destructive/30 px-3 py-1.5 text-xs font-semibold text-destructive transition-colors hover:bg-destructive/10 disabled:pointer-events-none disabled:opacity-60"
                             >
@@ -253,9 +296,9 @@ export default function TechnicianRequests() {
                         {booking.status === "accepted" && (
                           <button
                             type="button"
-                            onClick={() => setStatus(booking, "in-progress")}
+                            onClick={() => startWork(booking)}
                             disabled={busyId === booking._id}
-                            className="inline-flex items-center gap-1.5 rounded-lg bg-[#2563EB] px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-[#2563EB]/90 disabled:pointer-events-none disabled:opacity-60"
+                            className="inline-flex items-center gap-1.5 rounded-lg bg-[#2563EB] px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-[#2563EB]/90 disabled:pointer-events-none disabled:opacity-60 dark:bg-[#3B82F6]"
                           >
                             <Play className="size-3.5" />
                             Start Work
@@ -306,7 +349,7 @@ export default function TechnicianRequests() {
                     <>
                       <button
                         type="button"
-                        onClick={() => setStatus(booking, "accepted")}
+                        onClick={() => acceptRequest(booking)}
                         disabled={busyId === booking._id}
                         className="inline-flex h-9 flex-1 items-center justify-center rounded-lg bg-primary text-xs font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-60"
                       >
@@ -314,7 +357,7 @@ export default function TechnicianRequests() {
                       </button>
                       <button
                         type="button"
-                        onClick={() => setStatus(booking, "rejected")}
+                        onClick={() => setRejecting(booking)}
                         disabled={busyId === booking._id}
                         className="inline-flex h-9 flex-1 items-center justify-center rounded-lg border border-destructive/30 text-xs font-semibold text-destructive transition-colors hover:bg-destructive/10 disabled:opacity-60"
                       >
@@ -325,9 +368,9 @@ export default function TechnicianRequests() {
                   {booking.status === "accepted" && (
                     <button
                       type="button"
-                      onClick={() => setStatus(booking, "in-progress")}
+                      onClick={() => startWork(booking)}
                       disabled={busyId === booking._id}
-                      className="inline-flex h-9 flex-1 items-center justify-center gap-1.5 rounded-lg bg-[#2563EB] text-xs font-semibold text-white transition-colors hover:bg-[#2563EB]/90 disabled:opacity-60"
+                      className="inline-flex h-9 flex-1 items-center justify-center gap-1.5 rounded-lg bg-[#2563EB] text-xs font-semibold text-white transition-colors hover:bg-[#2563EB]/90 disabled:opacity-60 dark:bg-[#3B82F6]"
                     >
                       <Play className="size-3.5" />
                       Start Work
@@ -351,20 +394,69 @@ export default function TechnicianRequests() {
         </>
       )}
 
+      {/* Reject confirmation modal */}
+      <Modal
+        open={Boolean(rejecting)}
+        onClose={() => setRejecting(null)}
+        ariaLabel="Confirm rejection"
+        size="sm"
+        locked={Boolean(rejecting && busyId === rejecting._id)}
+      >
+        {rejecting && (
+          <>
+            <div className="flex items-start justify-between gap-4">
+              <span className="flex size-10 items-center justify-center rounded-full bg-destructive/10 text-destructive">
+                <X className="size-5" />
+              </span>
+              <button
+                type="button"
+                onClick={() => setRejecting(null)}
+                aria-label="Close"
+                className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              >
+                <X className="size-4" />
+              </button>
+            </div>
+            <h3 className="mt-3 text-lg font-semibold">Reject this request?</h3>
+            <p className="mt-1.5 text-sm text-muted-foreground">
+              <span className="font-semibold text-foreground">
+                {rejecting.customerName ?? "This customer"}
+              </span>{" "}
+              will see “{rejecting.serviceTitle}” as rejected and can send a new
+              request to another technician.
+            </p>
+            <div className="mt-5 flex gap-3">
+              <button
+                type="button"
+                onClick={() => setRejecting(null)}
+                className="h-10 flex-1 rounded-lg border text-sm font-semibold transition-colors hover:bg-muted"
+              >
+                Keep Request
+              </button>
+              <button
+                type="button"
+                onClick={handleRejectConfirmed}
+                disabled={busyId === rejecting._id}
+                className="inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-lg bg-destructive text-sm font-semibold text-white transition-colors hover:bg-destructive/90 disabled:pointer-events-none disabled:opacity-60"
+              >
+                {busyId === rejecting._id && <Loader2 className="size-4 animate-spin" />}
+                {busyId === rejecting._id ? "Rejecting…" : "Yes, Reject"}
+              </button>
+            </div>
+          </>
+        )}
+      </Modal>
+
       {/* Final amount modal (Mark Completed) */}
-      {completing && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-[#111827]/60 p-4 backdrop-blur-sm"
-          onClick={() => setCompleting(null)}
-          role="presentation"
-        >
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-label="Mark job completed"
-            onClick={(event) => event.stopPropagation()}
-            className="w-full max-w-sm rounded-xl border bg-card p-6 shadow-xl"
-          >
+      <Modal
+        open={Boolean(completing)}
+        onClose={() => setCompleting(null)}
+        ariaLabel="Mark job completed"
+        size="sm"
+        locked={Boolean(completing && busyId === completing._id)}
+      >
+        {completing && (
+          <>
             <div className="flex items-start justify-between gap-4">
               <div>
                 <h3 className="text-lg font-semibold">Complete the job</h3>
@@ -395,6 +487,7 @@ export default function TechnicianRequests() {
                 }}
                 placeholder="e.g. 60"
                 autoFocus
+                aria-invalid={Boolean(amountError)}
                 className={`${inputClasses} ${amountError ? "border-destructive" : ""}`}
               />
               {amountError ? (
@@ -425,9 +518,9 @@ export default function TechnicianRequests() {
                 {busyId === completing._id ? "Completing…" : "Complete Job"}
               </button>
             </div>
-          </div>
-        </div>
-      )}
+          </>
+        )}
+      </Modal>
     </div>
   );
 }

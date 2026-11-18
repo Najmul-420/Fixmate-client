@@ -2,12 +2,17 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { CircleCheck, Info, Loader2, X } from "lucide-react";
+import { toast } from "sonner";
 import { useSession, type FixMateUser } from "@/lib/auth-client";
+import { simulateRequest } from "@/lib/placeholder";
+import { todayInputValue } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import Modal from "@/components/shared/Modal";
 
 const MIN_DESCRIPTION_LENGTH = 20;
+const PHONE_PATTERN = /^[+()\d\s-]{6,20}$/;
 
 type Props = {
   serviceId: string;
@@ -33,6 +38,8 @@ const emptyForm: FormState = {
  * - logged out  -> link to /sign-in (returns here afterwards)
  * - technician/admin -> disabled button with an explanatory notice
  * - customer    -> opens the request form modal
+ *
+ * Submitting is a placeholder until the backend booking API is connected.
  */
 export default function RequestRepairSection({
   serviceId,
@@ -46,67 +53,55 @@ export default function RequestRepairSection({
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<FormState>(emptyForm);
   const [errors, setErrors] = useState<Partial<Record<keyof FormState, string>>>({});
-  const [status, setStatus] = useState<"idle" | "submitting" | "success" | "error">("idle");
-  const [serverError, setServerError] = useState("");
-
-  // Close the modal with Escape.
-  useEffect(() => {
-    if (!open) return;
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setOpen(false);
-    };
-    document.addEventListener("keydown", onKeyDown);
-    return () => document.removeEventListener("keydown", onKeyDown);
-  }, [open]);
+  const [status, setStatus] = useState<"idle" | "submitting" | "success">("idle");
 
   const updateField = (field: keyof FormState, value: string) => {
     setForm((prev) => ({ ...prev, [field]: value }));
     setErrors((prev) => ({ ...prev, [field]: undefined }));
-    // Clear a previous submission error as soon as the user edits the form.
-    if (status === "error") {
-      setStatus("idle");
-      setServerError("");
-    }
   };
 
   const validate = () => {
     const next: Partial<Record<keyof FormState, string>> = {};
-    if (!form.phone.trim()) next.phone = "Phone number is required.";
-    if (!form.address.trim()) next.address = "Your address is required.";
-    if (!form.preferredDate) next.preferredDate = "Please choose a preferred date.";
+
+    if (!form.phone.trim()) {
+      next.phone = "Phone number is required.";
+    } else if (!PHONE_PATTERN.test(form.phone.trim())) {
+      next.phone = "Enter a valid phone number (digits, spaces, +, - or parentheses).";
+    }
+
+    if (!form.address.trim()) {
+      next.address = "Your address is required.";
+    } else if (form.address.trim().length < 5) {
+      next.address = "Please enter a more complete address.";
+    }
+
+    if (!form.preferredDate) {
+      next.preferredDate = "Please choose a preferred date.";
+    } else if (form.preferredDate < todayInputValue()) {
+      next.preferredDate = "Please choose today or a future date.";
+    }
+
     if (form.problemDescription.trim().length < MIN_DESCRIPTION_LENGTH) {
       next.problemDescription = `Please describe the problem in at least ${MIN_DESCRIPTION_LENGTH} characters.`;
     }
+
     setErrors(next);
     return Object.keys(next).length === 0;
   };
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
-    if (!validate()) return;
+    if (status === "submitting" || !validate()) return;
+
     setStatus("submitting");
     try {
-      const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:5000";
-      const res = await fetch(`${apiBase}/api/bookings`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        signal: AbortSignal.timeout(8_000),
-        body: JSON.stringify({
-          serviceId,
-          customerPhone: form.phone.trim(),
-          address: form.address.trim(),
-          preferredDate: form.preferredDate,
-          problemDescription: form.problemDescription.trim(),
-        }),
-      });
-      if (!res.ok) throw new Error(`Booking failed with status ${res.status}`);
+      // TODO: Connect API — POST /api/bookings with
+      // { serviceId, customerPhone, address, preferredDate, problemDescription }.
+      await simulateRequest(600);
+      toast.success("Repair request sent to the technician.");
       setStatus("success");
-    } catch {
-      setServerError(
-        "Could not submit your request right now. Please try again in a moment."
-      );
-      setStatus("error");
+    } finally {
+      setStatus((current) => (current === "submitting" ? "idle" : current));
     }
   };
 
@@ -114,12 +109,15 @@ export default function RequestRepairSection({
     setOpen(false);
     if (status === "success") {
       setForm(emptyForm);
+      setErrors({});
       setStatus("idle");
     }
   };
 
   const actionButtonClasses =
     "inline-flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-primary text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:pointer-events-none disabled:opacity-60";
+
+  const descriptionLength = form.problemDescription.trim().length;
 
   return (
     <div className="flex flex-col gap-2">
@@ -148,25 +146,25 @@ export default function RequestRepairSection({
           </p>
         </>
       ) : (
-        <button type="button" onClick={() => setOpen(true)} className={actionButtonClasses}>
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className={actionButtonClasses}
+        >
           Request Repair
         </button>
       )}
 
       {/* Request form modal */}
-      {open && user && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-[#111827]/60 p-4 backdrop-blur-sm"
-          onClick={closeModal}
-          role="presentation"
-        >
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-label={`Request repair for ${serviceTitle}`}
-            onClick={(event) => event.stopPropagation()}
-            className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl border bg-card p-6 shadow-xl"
-          >
+      <Modal
+        open={open && Boolean(user)}
+        onClose={closeModal}
+        ariaLabel={`Request repair for ${serviceTitle}`}
+        size="lg"
+        locked={status === "submitting"}
+      >
+        {user && (
+          <>
             <div className="flex items-start justify-between gap-4">
               <div>
                 <h3 className="text-lg font-semibold">Request Repair</h3>
@@ -176,7 +174,8 @@ export default function RequestRepairSection({
                 type="button"
                 onClick={closeModal}
                 aria-label="Close"
-                className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                disabled={status === "submitting"}
+                className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50"
               >
                 <X className="size-4" />
               </button>
@@ -199,13 +198,13 @@ export default function RequestRepairSection({
                 </button>
               </div>
             ) : (
-              <form onSubmit={handleSubmit} noValidate className="mt-5 flex flex-col gap-4">
-                {status === "error" && (
-                  <p className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">
-                    {serverError}
-                  </p>
-                )}
-
+              <form
+                onSubmit={handleSubmit}
+                noValidate
+                className="mt-5 flex flex-col gap-4"
+              >
+                {/* Kept in the form so the real POST can send it later. */}
+                <input type="hidden" name="serviceId" value={serviceId} />
                 {/* Read-only identity fields from the session */}
                 <label className="flex flex-col gap-1.5">
                   <span className="text-sm font-medium">Name</span>
@@ -233,6 +232,9 @@ export default function RequestRepairSection({
                     value={form.phone}
                     onChange={(event) => updateField("phone", event.target.value)}
                     placeholder="Your contact number"
+                    autoComplete="tel"
+                    disabled={status === "submitting"}
+                    aria-invalid={Boolean(errors.phone)}
                     className={cn(
                       "h-10 rounded-lg border bg-background px-3 text-sm focus:ring-3 focus:ring-ring/50 focus:outline-none",
                       errors.phone ? "border-destructive" : "focus:border-ring"
@@ -250,6 +252,9 @@ export default function RequestRepairSection({
                     value={form.address}
                     onChange={(event) => updateField("address", event.target.value)}
                     placeholder="Where should the technician come?"
+                    autoComplete="street-address"
+                    disabled={status === "submitting"}
+                    aria-invalid={Boolean(errors.address)}
                     className={cn(
                       "h-10 rounded-lg border bg-background px-3 text-sm focus:ring-3 focus:ring-ring/50 focus:outline-none",
                       errors.address ? "border-destructive" : "focus:border-ring"
@@ -265,44 +270,59 @@ export default function RequestRepairSection({
                   <input
                     type="date"
                     value={form.preferredDate}
-                    min={new Date().toISOString().slice(0, 10)}
-                    onChange={(event) => updateField("preferredDate", event.target.value)}
+                    min={todayInputValue()}
+                    onChange={(event) =>
+                      updateField("preferredDate", event.target.value)
+                    }
+                    disabled={status === "submitting"}
+                    aria-invalid={Boolean(errors.preferredDate)}
                     className={cn(
                       "h-10 rounded-lg border bg-background px-3 text-sm focus:ring-3 focus:ring-ring/50 focus:outline-none",
                       errors.preferredDate ? "border-destructive" : "focus:border-ring"
                     )}
                   />
                   {errors.preferredDate && (
-                    <span className="text-xs text-destructive">{errors.preferredDate}</span>
+                    <span className="text-xs text-destructive">
+                      {errors.preferredDate}
+                    </span>
                   )}
                 </label>
 
                 <label className="flex flex-col gap-1.5">
                   <span className="flex items-center justify-between text-sm font-medium">
                     Problem Description
-                    <span className="text-xs font-normal text-muted-foreground">
-                      min. {MIN_DESCRIPTION_LENGTH} characters
+                    <span
+                      className={cn(
+                        "text-xs font-normal",
+                        descriptionLength >= MIN_DESCRIPTION_LENGTH
+                          ? "text-primary"
+                          : "text-muted-foreground"
+                      )}
+                    >
+                      {descriptionLength}/{MIN_DESCRIPTION_LENGTH} min.
                     </span>
                   </span>
                   <textarea
                     rows={4}
                     value={form.problemDescription}
-                    onChange={(event) => updateField("problemDescription", event.target.value)}
+                    onChange={(event) =>
+                      updateField("problemDescription", event.target.value)
+                    }
                     placeholder="Describe what is wrong with your device..."
+                    disabled={status === "submitting"}
+                    aria-invalid={Boolean(errors.problemDescription)}
                     className={cn(
                       "rounded-lg border bg-background px-3 py-2 text-sm focus:ring-3 focus:ring-ring/50 focus:outline-none",
-                      errors.problemDescription ? "border-destructive" : "focus:border-ring"
+                      errors.problemDescription
+                        ? "border-destructive"
+                        : "focus:border-ring"
                     )}
                   />
-                  <span
-                    className={cn(
-                      "text-xs",
-                      errors.problemDescription ? "text-destructive" : "text-muted-foreground"
-                    )}
-                  >
-                    {errors.problemDescription ??
-                      `${form.problemDescription.trim().length}/${MIN_DESCRIPTION_LENGTH} characters`}
-                  </span>
+                  {errors.problemDescription && (
+                    <span className="text-xs text-destructive">
+                      {errors.problemDescription}
+                    </span>
+                  )}
                 </label>
 
                 <button
@@ -310,14 +330,16 @@ export default function RequestRepairSection({
                   disabled={status === "submitting"}
                   className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-primary text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:pointer-events-none disabled:opacity-60"
                 >
-                  {status === "submitting" && <Loader2 className="size-4 animate-spin" />}
+                  {status === "submitting" && (
+                    <Loader2 className="size-4 animate-spin" />
+                  )}
                   {status === "submitting" ? "Submitting..." : "Submit Request"}
                 </button>
               </form>
             )}
-          </div>
-        </div>
-      )}
+          </>
+        )}
+      </Modal>
     </div>
   );
 }

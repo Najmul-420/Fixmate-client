@@ -48,7 +48,7 @@ const inputClasses =
 
 export default function SignUpForm() {
   const router = useRouter();
-  const [role, setRole] = useState<Exclude<UserRole, "admin">>("customer");
+  const [role, setRole] = useState<Exclude<UserRole, "admin"> | null>(null);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -56,10 +56,28 @@ export default function SignUpForm() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const clearError = (field: string) => {
+    setErrors((prev) => {
+      if (!prev[field]) return prev;
+      const next = { ...prev };
+      delete next[field];
+      return next;
+    });
+  };
+
   const validate = () => {
     const next: Record<string, string> = {};
-    if (!name.trim()) next.name = "Full name is required.";
-    if (!/^\S+@\S+\.\S+$/.test(email.trim())) {
+    if (!role) {
+      next.role = "Please choose an account type.";
+    }
+    if (!name.trim()) {
+      next.name = "Full name is required.";
+    } else if (name.trim().length < 2) {
+      next.name = "Name must be at least 2 characters.";
+    }
+    if (!email.trim()) {
+      next.email = "Email is required.";
+    } else if (!/^\S+@\S+\.\S+$/.test(email.trim())) {
       next.email = "Please enter a valid email address.";
     }
     const failedRule = passwordRules.find((rule) => !rule.test(password));
@@ -72,7 +90,7 @@ export default function SignUpForm() {
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
-    if (!validate()) return;
+    if (isSubmitting || !validate() || !role) return;
     setIsSubmitting(true);
     try {
       // The `role` custom field is declared in `src/lib/auth.ts` under
@@ -113,44 +131,57 @@ export default function SignUpForm() {
         className="mt-6 flex flex-col gap-4"
       >
         {/* Role selection (radio cards) */}
-        <div
-          role="radiogroup"
-          aria-label="Account role"
-          className="grid grid-cols-2 gap-3"
-        >
-          {roleOptions.map((option) => {
-            const selected = role === option.value;
-            return (
-              <button
-                key={option.value}
-                type="button"
-                role="radio"
-                aria-checked={selected}
-                onClick={() => setRole(option.value)}
-                className={cn(
-                  "flex flex-col items-start gap-1 rounded-xl border p-3 text-left transition-all focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none",
-                  selected
-                    ? "border-primary bg-primary/5 ring-1 ring-primary"
-                    : "hover:bg-muted",
-                )}
-              >
-                <span
+        <div className="flex flex-col gap-1.5">
+          <div
+            role="radiogroup"
+            aria-label="Account role"
+            aria-invalid={Boolean(errors.role)}
+            aria-describedby={errors.role ? "role-error" : undefined}
+            className="grid grid-cols-2 gap-3"
+          >
+            {roleOptions.map((option) => {
+              const selected = role === option.value;
+              return (
+                <button
+                  key={option.value}
+                  type="button"
+                  role="radio"
+                  aria-checked={selected}
+                  onClick={() => {
+                    setRole(option.value);
+                    clearError("role");
+                  }}
                   className={cn(
-                    "flex size-8 items-center justify-center rounded-lg",
+                    "flex flex-col items-start gap-1 rounded-xl border p-3 text-left transition-all focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none",
                     selected
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-muted text-muted-foreground",
+                      ? "border-primary bg-primary/5 ring-1 ring-primary"
+                      : "hover:bg-muted",
+                    errors.role && !selected && "border-destructive/60",
                   )}
                 >
-                  <option.icon className="size-4" />
-                </span>
-                <span className="text-sm font-semibold">{option.label}</span>
-                <span className="text-xs text-muted-foreground">
-                  {option.description}
-                </span>
-              </button>
-            );
-          })}
+                  <span
+                    className={cn(
+                      "flex size-8 items-center justify-center rounded-lg",
+                      selected
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-muted text-muted-foreground",
+                    )}
+                  >
+                    <option.icon className="size-4" />
+                  </span>
+                  <span className="text-sm font-semibold">{option.label}</span>
+                  <span className="text-xs text-muted-foreground">
+                    {option.description}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+          {errors.role && (
+            <span id="role-error" className="text-xs text-destructive">
+              {errors.role}
+            </span>
+          )}
         </div>
 
         <label className="flex flex-col gap-1.5">
@@ -158,9 +189,13 @@ export default function SignUpForm() {
           <input
             type="text"
             value={name}
-            onChange={(event) => setName(event.target.value)}
+            onChange={(event) => {
+              setName(event.target.value);
+              clearError("name");
+            }}
             placeholder="Your full name"
             autoComplete="name"
+            aria-invalid={Boolean(errors.name)}
             className={cn(inputClasses, errors.name && "border-destructive")}
           />
           {errors.name && (
@@ -173,9 +208,13 @@ export default function SignUpForm() {
           <input
             type="email"
             value={email}
-            onChange={(event) => setEmail(event.target.value)}
+            onChange={(event) => {
+              setEmail(event.target.value);
+              clearError("email");
+            }}
             placeholder="you@example.com"
             autoComplete="email"
+            aria-invalid={Boolean(errors.email)}
             className={cn(inputClasses, errors.email && "border-destructive")}
           />
           {errors.email && (
@@ -189,9 +228,14 @@ export default function SignUpForm() {
             <input
               type={showPassword ? "text" : "password"}
               value={password}
-              onChange={(event) => setPassword(event.target.value)}
+              onChange={(event) => {
+                setPassword(event.target.value);
+                clearError("password");
+              }}
               placeholder="Create a password"
               autoComplete="new-password"
+              aria-invalid={Boolean(errors.password)}
+              aria-describedby="password-rules"
               className={cn(
                 inputClasses,
                 "pr-10",
@@ -215,7 +259,7 @@ export default function SignUpForm() {
             <span className="text-xs text-destructive">{errors.password}</span>
           )}
           {/* Live password checklist */}
-          <ul className="mt-1 flex flex-col gap-1">
+          <ul id="password-rules" className="mt-1 flex flex-col gap-1">
             {passwordRules.map((rule) => {
               const passed = password.length > 0 && rule.test(password);
               return (

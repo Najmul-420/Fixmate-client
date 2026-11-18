@@ -8,8 +8,8 @@ type EmptyStateProps = {
   icon?: LucideIcon;
   title: string;
   description?: string;
-  /** Optional call-to-action link rendered below the description. */
-  action?: { label: string; href: string };
+  /** Optional call-to-action link (or local-state button) below the text. */
+  action?: { label: string; href?: string; onClick?: () => void };
   className?: string;
 };
 
@@ -38,14 +38,23 @@ export default function EmptyState({
       {description && (
         <p className="max-w-sm text-sm text-muted-foreground">{description}</p>
       )}
-      {action && (
-        <Link
-          href={action.href}
-          className="mt-1 inline-flex h-10 items-center rounded-lg border px-4 text-sm font-semibold transition-colors hover:bg-muted"
-        >
-          {action.label}
-        </Link>
-      )}
+      {action &&
+        (action.href ? (
+          <Link
+            href={action.href}
+            className="mt-1 inline-flex h-10 items-center rounded-lg border px-4 text-sm font-semibold transition-colors hover:bg-muted"
+          >
+            {action.label}
+          </Link>
+        ) : (
+          <button
+            type="button"
+            onClick={action.onClick}
+            className="mt-1 inline-flex h-10 items-center rounded-lg border px-4 text-sm font-semibold transition-colors hover:bg-muted"
+          >
+            {action.label}
+          </button>
+        ))}
     </div>
   );
 }

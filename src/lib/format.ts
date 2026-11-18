@@ -18,3 +18,12 @@ export function formatDate(iso?: string | null) {
     day: "numeric",
   }).format(date);
 }
+
+/**
+ * Today's date as `YYYY-MM-DD` in the user's local timezone.
+ * `new Date().toISOString()` would use UTC and can be off by one day.
+ */
+export function todayInputValue(now = new Date()) {
+  const offsetMs = now.getTimezoneOffset() * 60_000;
+  return new Date(now.getTime() - offsetMs).toISOString().slice(0, 10);
+}

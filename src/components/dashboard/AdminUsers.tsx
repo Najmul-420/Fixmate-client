@@ -1,9 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { Loader2, ShieldCheck, Users } from "lucide-react";
 import { toast } from "sonner";
-import { fetchUsers, updateUserRole } from "@/lib/api";
+import { fetchUsers } from "@/lib/api";
+import { simulateRequest } from "@/lib/placeholder";
 import type { AdminUser } from "@/lib/types";
 import type { UserRole } from "@/lib/auth-client";
 import { roleBadgeStyles, roleLabel } from "@/lib/badges";
@@ -26,20 +27,12 @@ function getInitials(name?: string | null) {
 
 /**
  * Admin "Manage Users": every platform user with an inline role changer.
- * Changing a role PATCHes the user record and refreshes the list.
+ * Changing a role updates local state through a placeholder handler until the
+ * API is connected.
  */
 export default function AdminUsers() {
   const [users, setUsers] = useState<AdminUser[] | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
-
-  const loadUsers = useCallback(async () => {
-    const list = await fetchUsers();
-    setUsers(
-      [...list].sort((a, b) =>
-        (a.name ?? a.email).localeCompare(b.name ?? b.email)
-      )
-    );
-  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -59,15 +52,19 @@ export default function AdminUsers() {
   const handleRoleChange = async (user: AdminUser, role: UserRole) => {
     if (!role || role === user.role) return;
     setBusyId(user._id);
-    const ok = await updateUserRole(user._id, role);
-    setBusyId(null);
-    if (ok) {
+    try {
+      // TODO: Connect API — PATCH /api/users/:id { role }
+      await simulateRequest(400);
+      setUsers((prev) =>
+        prev
+          ? prev.map((item) => (item._id === user._id ? { ...item, role } : item))
+          : prev
+      );
       toast.success(
         `${user.name ?? user.email} is now ${roleLabel(role).toLowerCase()}.`
       );
-      loadUsers();
-    } else {
-      toast.error("Could not change the role. Please try again.");
+    } finally {
+      setBusyId(null);
     }
   };
 

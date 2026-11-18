@@ -15,6 +15,16 @@ import type { UserRole } from "./auth-client";
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:5000";
 
 /**
+ * The Express backend is not built yet. While disabled, every read resolves
+ * immediately with an empty result and no network request is attempted, so
+ * the UI runs on local state alone.
+ *
+ * TODO: Connect API — set this to `true` (and configure
+ * NEXT_PUBLIC_API_BASE_URL) once the backend is available.
+ */
+const API_ENABLED = false;
+
+/**
  * Extracts an array from a backend payload whether it responds with a bare
  * array or an envelope like `{ data: [...] }`.
  */
@@ -26,6 +36,7 @@ function toArray<T>(payload: unknown): T[] {
 
 /** Unified GET helper: fails fast (4s) and always resolves to an array. */
 async function fetchList<T>(path: string, warnLabel: string): Promise<T[]> {
+  if (!API_ENABLED) return [];
   try {
     const res = await fetch(`${API_BASE}${path}`, {
       headers: { "Content-Type": "application/json" },
@@ -61,6 +72,8 @@ export type ServiceQuery = {
 export async function fetchApprovedServices(
   query: ServiceQuery
 ): Promise<Service[]> {
+  if (!API_ENABLED) return [];
+
   const params = new URLSearchParams({ status: "approved" });
   if (query.search) params.set("search", query.search);
   if (query.category) params.set("category", query.category);
@@ -124,6 +137,7 @@ export async function fetchBookings(scope: {
 export async function createService(
   input: Omit<Service, "_id" | "approvalStatus"> & { approvalStatus?: ApprovalStatus }
 ): Promise<Service | null> {
+  if (!API_ENABLED) return null;
   try {
     const res = await fetch(`${API_BASE}/api/services`, {
       method: "POST",
@@ -153,6 +167,7 @@ export async function updateService(
   serviceId: string,
   patch: Partial<Service>
 ): Promise<boolean> {
+  if (!API_ENABLED) return false;
   try {
     const res = await fetch(`${API_BASE}/api/services/${serviceId}`, {
       method: "PATCH",
@@ -170,6 +185,7 @@ export async function updateService(
 
 /** Deletes a service (technician action). Returns true when confirmed. */
 export async function deleteService(serviceId: string): Promise<boolean> {
+  if (!API_ENABLED) return false;
   try {
     const res = await fetch(`${API_BASE}/api/services/${serviceId}`, {
       method: "DELETE",
@@ -193,6 +209,7 @@ export async function updateBookingStatus(
   status: BookingStatus,
   finalAmount?: number
 ): Promise<boolean> {
+  if (!API_ENABLED) return false;
   try {
     const res = await fetch(`${API_BASE}/api/bookings/${bookingId}`, {
       method: "PATCH",
@@ -221,6 +238,7 @@ export async function fetchPayments(): Promise<Payment[]> {
  * still `requested`). PATCHes the status server-side.
  */
 export async function cancelBooking(bookingId: string): Promise<boolean> {
+  if (!API_ENABLED) return false;
   try {
     const res = await fetch(`${API_BASE}/api/bookings/${bookingId}`, {
       method: "PATCH",
@@ -244,6 +262,7 @@ export async function cancelBooking(bookingId: string): Promise<boolean> {
 export async function createCheckoutSession(
   bookingId: string
 ): Promise<string | null> {
+  if (!API_ENABLED) return null;
   try {
     const res = await fetch(`${API_BASE}/api/payments/create-checkout-session`, {
       method: "POST",
@@ -285,6 +304,7 @@ export async function updateUserRole(
   userId: string,
   role: UserRole
 ): Promise<boolean> {
+  if (!API_ENABLED) return false;
   try {
     const res = await fetch(`${API_BASE}/api/users/${userId}`, {
       method: "PATCH",
@@ -328,6 +348,7 @@ export async function getFeaturedServices(limit = 6): Promise<Service[]> {
  * is unavailable, or the backend is unreachable — callers render notFound().
  */
 export async function getServiceById(id: string): Promise<Service | null> {
+  if (!API_ENABLED) return null;
   try {
     const res = await fetch(`${API_BASE}/api/services/${id}`, {
       headers: { "Content-Type": "application/json" },

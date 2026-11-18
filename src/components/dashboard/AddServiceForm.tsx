@@ -4,10 +4,8 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { CircleCheck, Loader2 } from "lucide-react";
 import { toast } from "sonner";
-import { useSession } from "@/lib/auth-client";
-import { createService } from "@/lib/api";
-import { uploadToImgbb } from "@/lib/imgbb";
-import type { Service } from "@/lib/types";
+import { readImagePreview, validateImageFile } from "@/lib/local-image";
+import { simulateRequest } from "@/lib/placeholder";
 import ServiceFormFields, {
   emptyServiceForm,
   type ServiceFormErrors,
@@ -15,13 +13,11 @@ import ServiceFormFields, {
 } from "@/components/dashboard/ServiceFormFields";
 
 /**
- * Technician "Add Service": full form with an ImgBB image upload.
- * New services start as `pending` until an admin approves them.
+ * Technician "Add Service": full form with a local image preview. Saving is a
+ * placeholder until the backend/ImgBB are connected.
  */
 export default function AddServiceForm() {
   const router = useRouter();
-  const { data: session } = useSession();
-  const user = session?.user;
 
   const [form, setForm] = useState<ServiceFormValues>(emptyServiceForm);
   const [errors, setErrors] = useState<ServiceFormErrors>({});
@@ -35,35 +31,51 @@ export default function AddServiceForm() {
   };
 
   const handlePickImage = async (file: File) => {
-    if (!file.type.startsWith("image/")) {
-      toast.error("Please choose an image file.");
+    const validationError = validateImageFile(file);
+    if (validationError) {
+      toast.error(validationError);
+      setErrors((prev) => ({ ...prev, image: validationError }));
       return;
     }
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error("Image must be 5 MB or smaller.");
-      return;
-    }
+
     setUploading(true);
-    const url = await uploadToImgbb(file);
-    setUploading(false);
-    if (!url) {
-      toast.error("Image upload failed. Please try a different file.");
-      return;
+    try {
+      // TODO: Connect API — upload the file to ImgBB and store the hosted URL.
+      const preview = await readImagePreview(file);
+      handleChange({ image: preview });
+      toast.success("Image selected — preview shown locally.");
+    } catch {
+      toast.error("Could not read that image. Please try another file.");
+    } finally {
+      setUploading(false);
     }
-    handleChange({ image: url });
   };
 
   const handleClearImage = () => handleChange({ image: "" });
 
   const validate = () => {
     const next: ServiceFormErrors = {};
-    if (!form.title.trim()) next.title = "Title is required.";
-    if (!form.category) next.category = "Please choose a category.";
-    const price = Number(form.basePrice);
-    if (!form.basePrice || Number.isNaN(price) || price <= 0) {
-      next.basePrice = "Enter a base price greater than 0.";
+    const title = form.title.trim();
+    if (!title) {
+      next.title = "Title is required.";
+    } else if (title.length < 5) {
+      next.title = "Title must be at least 5 characters.";
     }
-    if (!form.image) next.image = "Please upload a service image.";
+
+    if (!form.category) next.category = "Please choose a category.";
+
+    const price = Number(form.basePrice);
+    if (!form.basePrice || !Number.isFinite(price) || price <= 0) {
+      next.basePrice = "Enter a base price greater than 0.";
+    } else if (price > 100_000) {
+      next.basePrice = "Base price must be $100,000 or less.";
+    }
+
+    if (form.description.trim().length > 500) {
+      next.description = "Description must be 500 characters or fewer.";
+    }
+    if (!form.image) next.image = "Please select a service image.";
+
     setErrors(next);
     return Object.keys(next).length === 0;
   };
@@ -73,26 +85,11 @@ export default function AddServiceForm() {
     if (!validate() || submitting) return;
     setSubmitting(true);
     try {
-      const created = await createService({
-        title: form.title.trim(),
-        category: form.category as Service["category"],
-        description: form.description.trim() || undefined,
-        image: form.image,
-        basePrice: Number(form.basePrice),
-        estimatedDuration: form.estimatedDuration.trim() || undefined,
-        serviceMode: form.serviceMode,
-        serviceArea: form.serviceArea.trim() || undefined,
-        technicianName: user?.name ?? "Unknown Technician",
-        technicianEmail: user?.email ?? undefined,
-        isAvailable: true,
-      });
-      if (!created) {
-        toast.error("Could not save the service. Please try again.");
-        return;
-      }
-      toast.success("Service added! It is pending admin approval.");
+      // TODO: Connect API — POST /api/services with the form payload (including
+      // the technician identity and the ImgBB-hosted image URL).
+      await simulateRequest();
+      toast.success("Service added! It will be pending admin approval.");
       setSuccess(true);
-      router.refresh();
     } finally {
       setSubmitting(false);
     }

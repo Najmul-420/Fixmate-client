@@ -50,7 +50,7 @@ const inputClasses =
 /**
  * Shared fields for the Add Service page and the technician edit modal:
  * Title, Category, Description, Base Price, Estimated Duration, Service
- * Mode, Service Area, and the ImgBB image upload with preview.
+ * Mode, Service Area, and a local image preview before the ImgBB upload.
  */
 export default function ServiceFormFields({
   values,
@@ -98,12 +98,12 @@ export default function ServiceFormFields({
             {uploading ? (
               <>
                 <Loader2 className="size-5 animate-spin" />
-                Uploading to ImgBB…
+                Reading image…
               </>
             ) : (
               <>
                 <ImagePlus className="size-5" />
-                Click to upload an image (ImgBB)
+                Choose an image (preview only)
               </>
             )}
           </button>
@@ -120,6 +120,10 @@ export default function ServiceFormFields({
           }}
         />
         {errors.image && <span className="text-xs text-destructive">{errors.image}</span>}
+        <p className="text-xs text-muted-foreground">
+          Local preview only — the image will be uploaded to ImgBB once the API
+          is connected.
+        </p>
       </div>
 
       <label className="flex flex-col gap-1.5">
@@ -130,6 +134,7 @@ export default function ServiceFormFields({
           onChange={(event) => onChange({ title: event.target.value })}
           placeholder="e.g. iPhone Screen Replacement"
           disabled={disabled}
+          aria-invalid={Boolean(errors.title)}
           className={cn(inputClasses, errors.title && "border-destructive")}
         />
         {errors.title && <span className="text-xs text-destructive">{errors.title}</span>}
@@ -144,6 +149,7 @@ export default function ServiceFormFields({
               onChange({ category: event.target.value as ServiceCategory })
             }
             disabled={disabled}
+            aria-invalid={Boolean(errors.category)}
             className={cn(inputClasses, errors.category && "border-destructive")}
           >
             <option value="" disabled>
@@ -170,6 +176,7 @@ export default function ServiceFormFields({
             onChange={(event) => onChange({ basePrice: event.target.value })}
             placeholder="e.g. 45"
             disabled={disabled}
+            aria-invalid={Boolean(errors.basePrice)}
             className={cn(inputClasses, errors.basePrice && "border-destructive")}
           />
           {errors.basePrice && (
@@ -179,15 +186,28 @@ export default function ServiceFormFields({
       </div>
 
       <label className="flex flex-col gap-1.5">
-        <span className="text-sm font-medium">Description</span>
+        <span className="flex items-center justify-between text-sm font-medium">
+          Description
+          <span className="text-xs font-normal text-muted-foreground">
+            {values.description.length}/500
+          </span>
+        </span>
         <textarea
           rows={3}
           value={values.description}
           onChange={(event) => onChange({ description: event.target.value })}
           placeholder="What exactly does this service cover?"
           disabled={disabled}
-          className="rounded-lg border bg-background px-3 py-2 text-sm focus:border-ring focus:ring-3 focus:ring-ring/50 focus:outline-none"
+          maxLength={500}
+          aria-invalid={Boolean(errors.description)}
+          className={cn(
+            "rounded-lg border bg-background px-3 py-2 text-sm focus:border-ring focus:ring-3 focus:ring-ring/50 focus:outline-none",
+            errors.description && "border-destructive"
+          )}
         />
+        {errors.description && (
+          <span className="text-xs text-destructive">{errors.description}</span>
+        )}
       </label>
 
       <div className="grid gap-4 sm:grid-cols-2">

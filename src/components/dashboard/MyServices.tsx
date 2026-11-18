@@ -1,22 +1,18 @@
 "use client";
 
 import Image from "next/image";
-import { useCallback, useEffect, useState } from "react";
-import {
-  FolderOpen,
-  Loader2,
-  Pencil,
-  Trash2,
-  X,
-} from "lucide-react";
+import { useEffect, useState } from "react";
+import { FolderOpen, Loader2, Pencil, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { useSession } from "@/lib/auth-client";
-import { deleteService, fetchServices, updateService } from "@/lib/api";
-import { uploadToImgbb } from "@/lib/imgbb";
+import { fetchServices } from "@/lib/api";
+import { readImagePreview, validateImageFile } from "@/lib/local-image";
+import { simulateRequest } from "@/lib/placeholder";
 import { formatPrice } from "@/lib/format";
 import type { Service } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import EmptyState from "@/components/shared/EmptyState";
+import Modal from "@/components/shared/Modal";
 import ServiceFormFields, {
   emptyServiceForm,
   type ServiceFormErrors,
@@ -67,8 +63,9 @@ function AvailabilityToggle({
 }
 
 /**
- * Technician "My Services": full CRUD — edit modal, delete confirmation,
- * and availability toggle — driven entirely by live API data.
+ * Technician "My Services": edit modal, delete confirmation, and availability
+ * toggle. Mutations update local state through placeholder handlers until the
+ * backend is connected.
  */
 export default function MyServices() {
   const { data: session, isPending } = useSession();
@@ -85,16 +82,6 @@ export default function MyServices() {
 
   // Delete confirmation state
   const [deleting, setDeleting] = useState<Service | null>(null);
-
-  const loadServices = useCallback(async (technicianEmail: string) => {
-    const list = await fetchServices({ technicianEmail });
-    setServices(
-      [...list].sort(
-        (a, b) =>
-          new Date(b.createdAt ?? 0).getTime() - new Date(a.createdAt ?? 0).getTime()
-      )
-    );
-  }, []);
 
   useEffect(() => {
     if (!email) return;
@@ -114,6 +101,12 @@ export default function MyServices() {
     };
   }, [email]);
 
+  const patchService = (id: string, patch: Partial<Service>) => {
+    setServices((prev) =>
+      prev ? prev.map((item) => (item._id === id ? { ...item, ...patch } : item)) : prev
+    );
+  };
+
   const openEdit = (service: Service) => {
     setEditing(service);
     setEditErrors({});
@@ -131,78 +124,99 @@ export default function MyServices() {
 
   const handleEditSave = async () => {
     if (!editing) return;
+
     const next: ServiceFormErrors = {};
-    if (!editForm.title.trim()) next.title = "Title is required.";
+    const title = editForm.title.trim();
+    if (!title) {
+      next.title = "Title is required.";
+    } else if (title.length < 5) {
+      next.title = "Title must be at least 5 characters.";
+    }
     if (!editForm.category) next.category = "Please choose a category.";
     const price = Number(editForm.basePrice);
-    if (!editForm.basePrice || Number.isNaN(price) || price <= 0) {
+    if (!editForm.basePrice || !Number.isFinite(price) || price <= 0) {
       next.basePrice = "Enter a base price greater than 0.";
+    } else if (price > 100_000) {
+      next.basePrice = "Base price must be $100,000 or less.";
     }
-    if (!editForm.image) next.image = "Please upload a service image.";
+    if (editForm.description.trim().length > 500) {
+      next.description = "Description must be 500 characters or fewer.";
+    }
+    if (!editForm.image) next.image = "Please select a service image.";
     setEditErrors(next);
     if (Object.keys(next).length > 0) return;
 
     setBusyId(editing._id);
-    const ok = await updateService(editing._id, {
-      title: editForm.title.trim(),
-      category: editForm.category as Service["category"],
-      description: editForm.description.trim() || undefined,
-      image: editForm.image,
-      basePrice: price,
-      estimatedDuration: editForm.estimatedDuration.trim() || undefined,
-      serviceMode: editForm.serviceMode,
-      serviceArea: editForm.serviceArea.trim() || undefined,
-    });
-    setBusyId(null);
-    if (ok) {
+    try {
+      // TODO: Connect API — PATCH /api/services/:id
+      await simulateRequest();
+      patchService(editing._id, {
+        title,
+        category: editForm.category as Service["category"],
+        description: editForm.description.trim(),
+        image: editForm.image,
+        basePrice: price,
+        estimatedDuration: editForm.estimatedDuration.trim(),
+        serviceMode: editForm.serviceMode,
+        serviceArea: editForm.serviceArea.trim(),
+      });
       toast.success("Service updated.");
       setEditing(null);
-      if (email) loadServices(email);
-    } else {
-      toast.error("Could not update the service. Please try again.");
+    } finally {
+      setBusyId(null);
     }
   };
 
   const handleEditImage = async (file: File) => {
-    if (!file.type.startsWith("image/")) {
-      toast.error("Please choose an image file.");
+    const validationError = validateImageFile(file);
+    if (validationError) {
+      toast.error(validationError);
+      setEditErrors((prev) => ({ ...prev, image: validationError }));
       return;
     }
+
     setEditUploading(true);
-    const url = await uploadToImgbb(file);
-    setEditUploading(false);
-    if (!url) {
-      toast.error("Image upload failed. Please try a different file.");
-      return;
+    try {
+      // TODO: Connect API — upload to ImgBB and store the hosted URL.
+      const preview = await readImagePreview(file);
+      setEditForm((prev) => ({ ...prev, image: preview }));
+      setEditErrors((prev) => ({ ...prev, image: undefined }));
+      toast.success("Image selected — preview shown locally.");
+    } catch {
+      toast.error("Could not read that image. Please try another file.");
+    } finally {
+      setEditUploading(false);
     }
-    setEditForm((prev) => ({ ...prev, image: url }));
   };
 
   const handleToggleAvailability = async (service: Service) => {
+    const nextAvailable = service.isAvailable === false;
     setBusyId(service._id);
-    const ok = await updateService(service._id, {
-      isAvailable: service.isAvailable === false,
-    });
-    setBusyId(null);
-    if (ok) {
-      toast.success(service.isAvailable === false ? "Service is now available." : "Service hidden from customers.");
-      if (email) loadServices(email);
-    } else {
-      toast.error("Could not change availability. Please try again.");
+    try {
+      // TODO: Connect API — PATCH /api/services/:id { isAvailable }
+      await simulateRequest(300);
+      patchService(service._id, { isAvailable: nextAvailable });
+      toast.success(
+        nextAvailable ? "Service is now available." : "Service hidden from customers."
+      );
+    } finally {
+      setBusyId(null);
     }
   };
 
   const handleDeleteConfirmed = async () => {
     if (!deleting) return;
     setBusyId(deleting._id);
-    const ok = await deleteService(deleting._id);
-    setBusyId(null);
-    setDeleting(null);
-    if (ok) {
+    try {
+      // TODO: Connect API — DELETE /api/services/:id
+      await simulateRequest(350);
+      setServices((prev) =>
+        prev ? prev.filter((item) => item._id !== deleting._id) : prev
+      );
       toast.success("Service deleted.");
-      if (email) loadServices(email);
-    } else {
-      toast.error("Could not delete the service. Please try again.");
+      setDeleting(null);
+    } finally {
+      setBusyId(null);
     }
   };
 
@@ -250,13 +264,20 @@ export default function MyServices() {
                 <tr key={service._id} className="border-b last:border-0">
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-3">
-                      <Image
-                        src={service.image}
-                        alt={service.title}
-                        width={64}
-                        height={40}
-                        className="h-10 w-16 shrink-0 rounded-lg border object-cover"
-                      />
+                      {service.image ? (
+                        <Image
+                          src={service.image}
+                          alt={service.title}
+                          width={64}
+                          height={40}
+                          unoptimized
+                          className="h-10 w-16 shrink-0 rounded-lg border object-cover"
+                        />
+                      ) : (
+                        <span className="flex h-10 w-16 shrink-0 items-center justify-center rounded-lg border bg-muted text-[10px] text-muted-foreground">
+                          No image
+                        </span>
+                      )}
                       <div className="min-w-0">
                         <p className="max-w-56 truncate font-semibold">
                           {service.title}
@@ -322,19 +343,15 @@ export default function MyServices() {
       )}
 
       {/* Edit modal */}
-      {editing && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-[#111827]/60 p-4 backdrop-blur-sm"
-          onClick={() => setEditing(null)}
-          role="presentation"
-        >
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-label={`Edit ${editing.title}`}
-            onClick={(event) => event.stopPropagation()}
-            className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl border bg-card p-6 shadow-xl"
-          >
+      <Modal
+        open={Boolean(editing)}
+        onClose={() => setEditing(null)}
+        ariaLabel={editing ? `Edit ${editing.title}` : "Edit service"}
+        size="lg"
+        locked={Boolean(editing && busyId === editing._id)}
+      >
+        {editing && (
+          <>
             <div className="flex items-start justify-between gap-4">
               <h3 className="text-lg font-semibold">Edit Service</h3>
               <button
@@ -355,7 +372,9 @@ export default function MyServices() {
                   setEditForm((prev) => ({ ...prev, ...patch }));
                   setEditErrors((prev) => ({
                     ...prev,
-                    ...Object.fromEntries(Object.keys(patch).map((key) => [key, undefined])),
+                    ...Object.fromEntries(
+                      Object.keys(patch).map((key) => [key, undefined])
+                    ),
                   }));
                 }}
                 uploading={editUploading}
@@ -383,24 +402,20 @@ export default function MyServices() {
                 {busyId === editing._id ? "Saving..." : "Save Changes"}
               </button>
             </div>
-          </div>
-        </div>
-      )}
+          </>
+        )}
+      </Modal>
 
       {/* Delete confirmation modal */}
-      {deleting && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-[#111827]/60 p-4 backdrop-blur-sm"
-          onClick={() => setDeleting(null)}
-          role="presentation"
-        >
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-label="Confirm deletion"
-            onClick={(event) => event.stopPropagation()}
-            className="w-full max-w-sm rounded-xl border bg-card p-6 shadow-xl"
-          >
+      <Modal
+        open={Boolean(deleting)}
+        onClose={() => setDeleting(null)}
+        ariaLabel="Confirm deletion"
+        size="sm"
+        locked={Boolean(deleting && busyId === deleting._id)}
+      >
+        {deleting && (
+          <>
             <div className="flex items-start justify-between gap-4">
               <span className="flex size-10 items-center justify-center rounded-full bg-destructive/10 text-destructive">
                 <Trash2 className="size-5" />
@@ -437,9 +452,9 @@ export default function MyServices() {
                 {busyId === deleting._id ? "Deleting…" : "Yes, Delete"}
               </button>
             </div>
-          </div>
-        </div>
-      )}
+          </>
+        )}
+      </Modal>
     </div>
   );
 }

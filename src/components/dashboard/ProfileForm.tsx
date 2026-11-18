@@ -5,7 +5,7 @@ import { useRef, useState } from "react";
 import { ImagePlus, Loader2, X } from "lucide-react";
 import { toast } from "sonner";
 import { authClient, type FixMateUser } from "@/lib/auth-client";
-import { uploadToImgbb } from "@/lib/imgbb";
+import { readImagePreview, validateImageFile } from "@/lib/local-image";
 import { roleBadgeStyles, roleLabel } from "@/lib/badges";
 import { cn } from "@/lib/utils";
 
@@ -66,24 +66,27 @@ export default function ProfileForm({ user, onSaved }: Props) {
   };
 
   const handlePickImage = async (file: File) => {
-    if (!file.type.startsWith("image/")) {
-      toast.error("Please choose an image file.");
+    const validationError = validateImageFile(file);
+    if (validationError) {
+      toast.error(validationError);
       return;
     }
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error("Image must be 5 MB or smaller.");
-      return;
-    }
+
     setUploading(true);
-    const url = await uploadToImgbb(file);
-    setUploading(false);
-    if (!url) {
-      toast.error("Image upload failed. Please try a different file.");
-      return;
+    try {
+      // TODO: Connect API — upload the file to ImgBB and store the hosted URL.
+      // Until then the selected image is only a local preview (data URL).
+      const preview = await readImagePreview(file);
+      handleChange({ image: preview });
+      toast.success("Photo selected — preview updated locally.");
+    } catch {
+      toast.error("Could not read that image. Please try another file.");
+    } finally {
+      setUploading(false);
     }
-    handleChange({ image: url });
-    toast.success("Photo uploaded. Save your profile to apply it.");
   };
+
+  const isLocalPreview = form.image.startsWith("data:");
 
   const validate = () => {
     const next: Record<string, string> = {};
@@ -107,9 +110,9 @@ export default function ProfileForm({ user, onSaved }: Props) {
       // in src/lib/auth.ts, so BetterAuth persists them here.
       const { error } = await authClient.updateUser({
         name: form.name.trim(),
-        // `null` clears a removed photo; `undefined` would be dropped from the
-        // JSON payload and leave the old image in place.
-        image: form.image || null,
+        // TODO: Connect API — upload a locally selected preview to ImgBB, then
+        // send the hosted URL here. A data URL is preview-only and is skipped.
+        ...(isLocalPreview ? {} : { image: form.image || null }),
         phone: form.phone.trim(),
         area: form.area.trim(),
         bio: form.bio.trim(),
@@ -120,7 +123,11 @@ export default function ProfileForm({ user, onSaved }: Props) {
         );
         return;
       }
-      toast.success("Profile updated.");
+      toast.success(
+        isLocalPreview
+          ? "Profile details saved. The new photo will be uploaded once the API is connected."
+          : "Profile updated."
+      );
       onSaved();
     } catch {
       toast.error("Something went wrong. Please try again later.");
@@ -171,7 +178,7 @@ export default function ProfileForm({ user, onSaved }: Props) {
             {uploading ? (
               <>
                 <Loader2 className="size-3.5 animate-spin" />
-                Uploading…
+                Reading…
               </>
             ) : (
               <>
@@ -192,7 +199,9 @@ export default function ProfileForm({ user, onSaved }: Props) {
             }}
           />
           <p className="text-xs text-muted-foreground">
-            JPG or PNG, up to 5 MB. Hosted on ImgBB.
+            {isLocalPreview
+              ? "Local preview only — this photo uploads to ImgBB once the API is connected."
+              : "JPG or PNG, up to 5 MB. Hosted on ImgBB."}
           </p>
 
           <span
@@ -216,6 +225,7 @@ export default function ProfileForm({ user, onSaved }: Props) {
               placeholder="Your full name"
               autoComplete="name"
               disabled={saving}
+              aria-invalid={Boolean(errors.name)}
               className={cn(inputClasses, errors.name && "border-destructive")}
             />
             {errors.name && (
@@ -247,6 +257,7 @@ export default function ProfileForm({ user, onSaved }: Props) {
                 placeholder="e.g. +880 1700 000000"
                 autoComplete="tel"
                 disabled={saving}
+                aria-invalid={Boolean(errors.phone)}
                 className={cn(inputClasses, errors.phone && "border-destructive")}
               />
               {errors.phone && (
@@ -280,6 +291,8 @@ export default function ProfileForm({ user, onSaved }: Props) {
               onChange={(event) => handleChange({ bio: event.target.value })}
               placeholder="Tell customers or technicians a little about yourself."
               disabled={saving}
+              maxLength={500}
+              aria-invalid={Boolean(errors.bio)}
               className={cn(
                 "rounded-lg border bg-background px-3 py-2 text-sm focus:border-ring focus:ring-3 focus:ring-ring/50 focus:outline-none",
                 errors.bio && "border-destructive"

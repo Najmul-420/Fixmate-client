@@ -29,9 +29,21 @@ export default function SignInForm() {
   const safeRedirect =
     redirectTarget && redirectTarget.startsWith("/") ? redirectTarget : null;
 
+  const clearError = (field: string) => {
+    setErrors((prev) => {
+      if (!prev[field]) return prev;
+      const next = { ...prev };
+      delete next[field];
+      return next;
+    });
+  };
+
   const validate = () => {
     const next: Record<string, string> = {};
-    if (!/^\S+@\S+\.\S+$/.test(email.trim())) {
+    const trimmedEmail = email.trim();
+    if (!trimmedEmail) {
+      next.email = "Email is required.";
+    } else if (!/^\S+@\S+\.\S+$/.test(trimmedEmail)) {
       next.email = "Please enter a valid email address.";
     }
     if (!password) next.password = "Password is required.";
@@ -80,9 +92,13 @@ export default function SignInForm() {
           <input
             type="email"
             value={email}
-            onChange={(event) => setEmail(event.target.value)}
+            onChange={(event) => {
+              setEmail(event.target.value);
+              clearError("email");
+            }}
             placeholder="you@example.com"
             autoComplete="email"
+            aria-invalid={Boolean(errors.email)}
             className={cn(inputClasses, errors.email && "border-destructive")}
           />
           {errors.email && <span className="text-xs text-destructive">{errors.email}</span>}
@@ -94,9 +110,13 @@ export default function SignInForm() {
             <input
               type={showPassword ? "text" : "password"}
               value={password}
-              onChange={(event) => setPassword(event.target.value)}
+              onChange={(event) => {
+                setPassword(event.target.value);
+                clearError("password");
+              }}
               placeholder="Your password"
               autoComplete="current-password"
+              aria-invalid={Boolean(errors.password)}
               className={cn(inputClasses, "pr-10", errors.password && "border-destructive")}
             />
             <button

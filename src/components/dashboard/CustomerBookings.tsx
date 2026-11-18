@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   CircleAlert,
   CreditCard,
@@ -10,40 +10,41 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { useSession } from "@/lib/auth-client";
-import { cancelBooking, createCheckoutSession, fetchBookings } from "@/lib/api";
+import { fetchBookings } from "@/lib/api";
+import { simulateRequest } from "@/lib/placeholder";
 import { formatDate, formatPrice } from "@/lib/format";
-import type { Booking } from "@/lib/types";
-import { cn } from "@/lib/utils";
+import type { Booking, BookingStatus } from "@/lib/types";
 import StatusBadge from "@/components/dashboard/StatusBadge";
 import PaymentBadge from "@/components/dashboard/PaymentBadge";
 import EmptyState from "@/components/shared/EmptyState";
+import Modal from "@/components/shared/Modal";
+
+const FILTERS: { value: BookingStatus | "all"; label: string }[] = [
+  { value: "all", label: "All" },
+  { value: "requested", label: "Requested" },
+  { value: "accepted", label: "Accepted" },
+  { value: "in-progress", label: "In Progress" },
+  { value: "completed", label: "Completed" },
+  { value: "rejected", label: "Rejected" },
+  { value: "cancelled", label: "Cancelled" },
+];
 
 /**
  * Customer "My Bookings": every booking the signed-in customer made, with
- * status + payment badges, a Cancel action for still-pending requests, and
- * a Pay Now (Stripe Checkout) action for completed-unpaid jobs.
+ * status + payment badges, a status filter, a Cancel action for still-pending
+ * requests, and a Pay Now (Stripe Checkout) action for completed-unpaid jobs.
+ *
+ * Cancellation updates local state; checkout is a placeholder until the
+ * backend and Stripe keys are connected.
  */
 export default function CustomerBookings() {
   const { data: session, isPending } = useSession();
   const email = session?.user?.email ?? null;
 
   const [bookings, setBookings] = useState<Booking[] | null>(null);
+  const [filter, setFilter] = useState<BookingStatus | "all">("all");
   const [busyId, setBusyId] = useState<string | null>(null);
   const [cancelTarget, setCancelTarget] = useState<Booking | null>(null);
-
-  const loadBookings = useCallback(
-    async (customerEmail: string) => {
-      const list = await fetchBookings({ customerEmail });
-      setBookings(
-        [...list].sort(
-          (a, b) =>
-            new Date(b.createdAt ?? 0).getTime() -
-            new Date(a.createdAt ?? 0).getTime()
-        )
-      );
-    },
-    []
-  );
 
   useEffect(() => {
     if (!email) return;
@@ -63,30 +64,37 @@ export default function CustomerBookings() {
     };
   }, [email]);
 
+  const patchBooking = (id: string, patch: Partial<Booking>) => {
+    setBookings((prev) =>
+      prev ? prev.map((item) => (item._id === id ? { ...item, ...patch } : item)) : prev
+    );
+  };
+
   const handleCancelConfirmed = async () => {
     if (!cancelTarget) return;
     setBusyId(cancelTarget._id);
-    const ok = await cancelBooking(cancelTarget._id);
-    setBusyId(null);
-    setCancelTarget(null);
-    if (ok) {
+    try {
+      // TODO: Connect API — PATCH /api/bookings/:id/cancel
+      await simulateRequest(400);
+      patchBooking(cancelTarget._id, { status: "cancelled" });
       toast.success("Booking cancelled.");
-      if (email) loadBookings(email);
-    } else {
-      toast.error("Could not cancel the booking. Please try again.");
+      setCancelTarget(null);
+    } finally {
+      setBusyId(null);
     }
   };
 
   const handlePayNow = async (booking: Booking) => {
     setBusyId(booking._id);
-    const url = await createCheckoutSession(booking._id);
-    setBusyId(null);
-    if (url) {
-      window.location.assign(url);
-    } else {
-      toast.error(
-        "Could not start checkout right now. Please try again in a moment."
+    try {
+      // TODO: Connect API — POST /api/payments/checkout-session, then redirect
+      // the browser to the returned Stripe Checkout URL.
+      await simulateRequest(350);
+      toast.info(
+        "Stripe Checkout isn’t connected yet — you’ll be able to pay this booking once the backend is live."
       );
+    } finally {
+      setBusyId(null);
     }
   };
 
@@ -98,6 +106,12 @@ export default function CustomerBookings() {
       </div>
     );
   }
+
+  const filtered =
+    filter === "all" ? bookings : bookings.filter((b) => b.status === filter);
+
+  const countByStatus = (status: BookingStatus) =>
+    bookings.filter((b) => b.status === status).length;
 
   return (
     <div className="flex flex-col gap-6">
@@ -117,147 +131,194 @@ export default function CustomerBookings() {
         />
       ) : (
         <>
-          {/* Desktop table */}
-          <div className="hidden overflow-x-auto rounded-xl border bg-card md:block">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b bg-muted/50 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  <th className="px-4 py-3">Service</th>
-                  <th className="px-4 py-3">Technician</th>
-                  <th className="px-4 py-3">Preferred Date</th>
-                  <th className="px-4 py-3">Amount</th>
-                  <th className="px-4 py-3">Status</th>
-                  <th className="px-4 py-3">Payment</th>
-                  <th className="px-4 py-3 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {bookings.map((booking) => (
-                  <tr key={booking._id} className="border-b last:border-0">
-                    <td className="max-w-56 truncate px-4 py-3 font-semibold">
-                      {booking.serviceTitle}
-                    </td>
-                    <td className="max-w-40 truncate px-4 py-3 text-muted-foreground">
-                      {booking.technicianName ?? "—"}
-                    </td>
-                    <td className="px-4 py-3 text-muted-foreground">
-                      {formatDate(booking.preferredDate)}
-                    </td>
-                    <td className="whitespace-nowrap px-4 py-3 font-semibold tabular-nums">
-                      {formatPrice(booking.finalAmount ?? booking.basePrice ?? 0)}
-                    </td>
-                    <td className="px-4 py-3">
-                      <StatusBadge status={booking.status} />
-                    </td>
-                    <td className="px-4 py-3">
-                      <PaymentBadge status={booking.paymentStatus} />
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex justify-end gap-2">
-                        {booking.status === "requested" && (
-                          <button
-                            type="button"
-                            onClick={() => setCancelTarget(booking)}
-                            disabled={busyId === booking._id}
-                            className="inline-flex items-center gap-1.5 rounded-lg border border-destructive/30 px-3 py-1.5 text-xs font-semibold text-destructive transition-colors hover:bg-destructive/10 disabled:pointer-events-none disabled:opacity-60"
-                          >
-                            Cancel
-                          </button>
-                        )}
-                        {booking.status === "completed" &&
-                          booking.paymentStatus !== "paid" && (
-                            <button
-                              type="button"
-                              onClick={() => handlePayNow(booking)}
-                              disabled={busyId === booking._id}
-                              className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:pointer-events-none disabled:opacity-60"
-                            >
-                              {busyId === booking._id ? (
-                                <Loader2 className="size-3.5 animate-spin" />
-                              ) : (
-                                <CreditCard className="size-3.5" />
-                              )}
-                              Pay Now
-                            </button>
-                          )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          {/* Status filter tabs */}
+          <div
+            className="flex flex-wrap gap-2"
+            role="tablist"
+            aria-label="Filter bookings by status"
+          >
+            {FILTERS.map((option) => {
+              const active = filter === option.value;
+              const count =
+                option.value === "all"
+                  ? bookings.length
+                  : countByStatus(option.value);
+              return (
+                <button
+                  key={option.value}
+                  type="button"
+                  role="tab"
+                  aria-selected={active}
+                  onClick={() => setFilter(option.value)}
+                  className={
+                    active
+                      ? "inline-flex items-center gap-1.5 rounded-full bg-primary px-3.5 py-1.5 text-xs font-semibold text-primary-foreground transition-colors"
+                      : "inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-xs font-semibold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                  }
+                >
+                  {option.label}
+                  <span
+                    className={
+                      active
+                        ? "rounded-full bg-white/20 px-1.5 text-[10px]"
+                        : "rounded-full bg-muted px-1.5 text-[10px]"
+                    }
+                  >
+                    {count}
+                  </span>
+                </button>
+              );
+            })}
           </div>
 
-          {/* Mobile cards */}
-          <ul className="flex flex-col gap-3 md:hidden">
-            {bookings.map((booking) => (
-              <li key={booking._id} className="rounded-xl border bg-card p-4">
-                <div className="flex items-start justify-between gap-3">
-                  <p className="font-semibold">{booking.serviceTitle}</p>
-                  <StatusBadge status={booking.status} />
-                </div>
-                <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
-                  <dt className="text-muted-foreground">Technician</dt>
-                  <dd className="truncate">{booking.technicianName ?? "—"}</dd>
-                  <dt className="text-muted-foreground">Date</dt>
-                  <dd>{formatDate(booking.preferredDate)}</dd>
-                  <dt className="text-muted-foreground">Amount</dt>
-                  <dd className="font-semibold tabular-nums">
-                    {formatPrice(booking.finalAmount ?? booking.basePrice ?? 0)}
-                  </dd>
-                  <dt className="text-muted-foreground">Payment</dt>
-                  <dd>
-                    <PaymentBadge status={booking.paymentStatus} />
-                  </dd>
-                </dl>
-                <div className="mt-4 flex gap-2">
-                  {booking.status === "requested" && (
-                    <button
-                      type="button"
-                      onClick={() => setCancelTarget(booking)}
-                      disabled={busyId === booking._id}
-                      className="inline-flex h-9 flex-1 items-center justify-center rounded-lg border border-destructive/30 text-xs font-semibold text-destructive transition-colors hover:bg-destructive/10 disabled:pointer-events-none disabled:opacity-60"
-                    >
-                      Cancel
-                    </button>
-                  )}
-                  {booking.status === "completed" &&
-                    booking.paymentStatus !== "paid" && (
-                      <button
-                        type="button"
-                        onClick={() => handlePayNow(booking)}
-                        disabled={busyId === booking._id}
-                        className="inline-flex h-9 flex-1 items-center justify-center gap-1.5 rounded-lg bg-primary text-xs font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:pointer-events-none disabled:opacity-60"
-                      >
-                        {busyId === booking._id ? (
-                          <Loader2 className="size-3.5 animate-spin" />
-                        ) : (
-                          <CreditCard className="size-3.5" />
+          {filtered.length === 0 ? (
+            <EmptyState
+              icon={ReceiptText}
+              title={`No ${filter} bookings`}
+              description="You have no bookings with this status right now."
+              action={{ label: "Show all bookings", onClick: () => setFilter("all") }}
+            />
+          ) : (
+            <>
+              {/* Desktop table */}
+              <div className="hidden overflow-x-auto rounded-xl border bg-card md:block">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b bg-muted/50 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                      <th className="px-4 py-3">Service</th>
+                      <th className="px-4 py-3">Technician</th>
+                      <th className="px-4 py-3">Preferred Date</th>
+                      <th className="px-4 py-3">Amount</th>
+                      <th className="px-4 py-3">Status</th>
+                      <th className="px-4 py-3">Payment</th>
+                      <th className="px-4 py-3 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filtered.map((booking) => (
+                      <tr key={booking._id} className="border-b last:border-0">
+                        <td className="max-w-56 truncate px-4 py-3 font-semibold">
+                          {booking.serviceTitle}
+                        </td>
+                        <td className="max-w-40 truncate px-4 py-3 text-muted-foreground">
+                          {booking.technicianName ?? "—"}
+                        </td>
+                        <td className="px-4 py-3 text-muted-foreground">
+                          {formatDate(booking.preferredDate)}
+                        </td>
+                        <td className="whitespace-nowrap px-4 py-3 font-semibold tabular-nums">
+                          {formatPrice(booking.finalAmount ?? booking.basePrice ?? 0)}
+                        </td>
+                        <td className="px-4 py-3">
+                          <StatusBadge status={booking.status} />
+                        </td>
+                        <td className="px-4 py-3">
+                          <PaymentBadge status={booking.paymentStatus} />
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex justify-end gap-2">
+                            {booking.status === "requested" && (
+                              <button
+                                type="button"
+                                onClick={() => setCancelTarget(booking)}
+                                disabled={busyId === booking._id}
+                                className="inline-flex items-center gap-1.5 rounded-lg border border-destructive/30 px-3 py-1.5 text-xs font-semibold text-destructive transition-colors hover:bg-destructive/10 disabled:pointer-events-none disabled:opacity-60"
+                              >
+                                Cancel
+                              </button>
+                            )}
+                            {booking.status === "completed" &&
+                              booking.paymentStatus !== "paid" && (
+                                <button
+                                  type="button"
+                                  onClick={() => handlePayNow(booking)}
+                                  disabled={busyId === booking._id}
+                                  className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:pointer-events-none disabled:opacity-60"
+                                >
+                                  {busyId === booking._id ? (
+                                    <Loader2 className="size-3.5 animate-spin" />
+                                  ) : (
+                                    <CreditCard className="size-3.5" />
+                                  )}
+                                  Pay Now
+                                </button>
+                              )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Mobile cards */}
+              <ul className="flex flex-col gap-3 md:hidden">
+                {filtered.map((booking) => (
+                  <li key={booking._id} className="rounded-xl border bg-card p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <p className="font-semibold">{booking.serviceTitle}</p>
+                      <StatusBadge status={booking.status} />
+                    </div>
+                    <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                      <dt className="text-muted-foreground">Technician</dt>
+                      <dd className="truncate">{booking.technicianName ?? "—"}</dd>
+                      <dt className="text-muted-foreground">Date</dt>
+                      <dd>{formatDate(booking.preferredDate)}</dd>
+                      <dt className="text-muted-foreground">Amount</dt>
+                      <dd className="font-semibold tabular-nums">
+                        {formatPrice(booking.finalAmount ?? booking.basePrice ?? 0)}
+                      </dd>
+                      <dt className="text-muted-foreground">Payment</dt>
+                      <dd>
+                        <PaymentBadge status={booking.paymentStatus} />
+                      </dd>
+                    </dl>
+                    <div className="mt-4 flex gap-2">
+                      {booking.status === "requested" && (
+                        <button
+                          type="button"
+                          onClick={() => setCancelTarget(booking)}
+                          disabled={busyId === booking._id}
+                          className="inline-flex h-9 flex-1 items-center justify-center rounded-lg border border-destructive/30 text-xs font-semibold text-destructive transition-colors hover:bg-destructive/10 disabled:pointer-events-none disabled:opacity-60"
+                        >
+                          Cancel
+                        </button>
+                      )}
+                      {booking.status === "completed" &&
+                        booking.paymentStatus !== "paid" && (
+                          <button
+                            type="button"
+                            onClick={() => handlePayNow(booking)}
+                            disabled={busyId === booking._id}
+                            className="inline-flex h-9 flex-1 items-center justify-center gap-1.5 rounded-lg bg-primary text-xs font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:pointer-events-none disabled:opacity-60"
+                          >
+                            {busyId === booking._id ? (
+                              <Loader2 className="size-3.5 animate-spin" />
+                            ) : (
+                              <CreditCard className="size-3.5" />
+                            )}
+                            Pay Now
+                          </button>
                         )}
-                        Pay Now
-                      </button>
-                    )}
-                </div>
-              </li>
-            ))}
-          </ul>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
         </>
       )}
 
       {/* Cancel confirmation modal */}
-      {cancelTarget && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-[#111827]/60 p-4 backdrop-blur-sm"
-          onClick={() => setCancelTarget(null)}
-          role="presentation"
-        >
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-label="Confirm cancellation"
-            onClick={(event) => event.stopPropagation()}
-            className="w-full max-w-sm rounded-xl border bg-card p-6 shadow-xl"
-          >
+      <Modal
+        open={Boolean(cancelTarget)}
+        onClose={() => setCancelTarget(null)}
+        ariaLabel="Confirm cancellation"
+        size="sm"
+        locked={Boolean(cancelTarget && busyId === cancelTarget._id)}
+      >
+        {cancelTarget && (
+          <>
             <div className="flex items-start justify-between gap-4">
               <span className="flex size-10 items-center justify-center rounded-full bg-destructive/10 text-destructive">
                 <CircleAlert className="size-5" />
@@ -292,9 +353,7 @@ export default function CustomerBookings() {
                 type="button"
                 onClick={handleCancelConfirmed}
                 disabled={busyId === cancelTarget._id}
-                className={cn(
-                  "inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-lg bg-destructive text-sm font-semibold text-white transition-colors hover:bg-destructive/90 disabled:pointer-events-none disabled:opacity-60"
-                )}
+                className="inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-lg bg-destructive text-sm font-semibold text-white transition-colors hover:bg-destructive/90 disabled:pointer-events-none disabled:opacity-60"
               >
                 {busyId === cancelTarget._id && (
                   <Loader2 className="size-4 animate-spin" />
@@ -302,9 +361,9 @@ export default function CustomerBookings() {
                 {busyId === cancelTarget._id ? "Cancelling…" : "Yes, Cancel"}
               </button>
             </div>
-          </div>
-        </div>
-      )}
+          </>
+        )}
+      </Modal>
     </div>
   );
 }

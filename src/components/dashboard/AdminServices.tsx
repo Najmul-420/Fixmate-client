@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   CircleCheck,
   CircleX,
@@ -9,7 +9,8 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import { toast } from "sonner";
-import { fetchServices, updateService } from "@/lib/api";
+import { fetchServices } from "@/lib/api";
+import { simulateRequest } from "@/lib/placeholder";
 import { formatPrice } from "@/lib/format";
 import type { ApprovalStatus, Service } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -35,22 +36,13 @@ function approvalBadgeClasses(status: ApprovalStatus) {
 
 /**
  * Admin "Service Approval": all technician services with an approval-status
- * filter and Approve / Reject moderation actions.
+ * filter and Approve / Reject moderation actions. Moderation updates local
+ * state through a placeholder handler until the API is connected.
  */
 export default function AdminServices() {
   const [services, setServices] = useState<Service[] | null>(null);
   const [filter, setFilter] = useState<ApprovalStatus | "all">("pending");
   const [busyId, setBusyId] = useState<string | null>(null);
-
-  const loadServices = useCallback(async () => {
-    const list = await fetchServices();
-    setServices(
-      [...list].sort(
-        (a, b) =>
-          new Date(b.createdAt ?? 0).getTime() - new Date(a.createdAt ?? 0).getTime()
-      )
-    );
-  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -70,13 +62,21 @@ export default function AdminServices() {
 
   const moderate = async (service: Service, status: ApprovalStatus) => {
     setBusyId(service._id);
-    const ok = await updateService(service._id, { approvalStatus: status });
-    setBusyId(null);
-    if (ok) {
+    try {
+      // TODO: Connect API — PATCH /api/services/:id { approvalStatus }
+      await simulateRequest(350);
+      setServices((prev) =>
+        prev
+          ? prev.map((item) =>
+              item._id === service._id
+                ? { ...item, approvalStatus: status }
+                : item
+            )
+          : prev
+      );
       toast.success(`"${service.title}" ${status}.`);
-      loadServices();
-    } else {
-      toast.error("Could not update the service. Please try again.");
+    } finally {
+      setBusyId(null);
     }
   };
 
@@ -154,6 +154,11 @@ export default function AdminServices() {
               ? "Technician-submitted services will appear here for moderation."
               : "Try another filter to see the rest of the services."
           }
+          action={
+            filter === "all"
+              ? undefined
+              : { label: "Show all services", onClick: () => setFilter("all") }
+          }
         />
       ) : (
         <div className="overflow-x-auto rounded-xl border bg-card">
@@ -172,13 +177,20 @@ export default function AdminServices() {
                 <tr key={service._id} className="border-b last:border-0">
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-3">
-                      <Image
-                        src={service.image}
-                        alt={service.title}
-                        width={64}
-                        height={40}
-                        className="h-10 w-16 shrink-0 rounded-lg border object-cover"
-                      />
+                      {service.image ? (
+                        <Image
+                          src={service.image}
+                          alt={service.title}
+                          width={64}
+                          height={40}
+                          unoptimized
+                          className="h-10 w-16 shrink-0 rounded-lg border object-cover"
+                        />
+                      ) : (
+                        <span className="flex h-10 w-16 shrink-0 items-center justify-center rounded-lg border bg-muted text-[10px] text-muted-foreground">
+                          No image
+                        </span>
+                      )}
                       <div className="min-w-0">
                         <p className="max-w-56 truncate font-semibold">
                           {service.title}
