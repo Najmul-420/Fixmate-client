@@ -31,8 +31,6 @@ export default function CustomerOverview() {
   useEffect(() => {
     if (!email) return;
     let cancelled = false;
-    setBookings(null);
-    setPayments(null);
     Promise.all([fetchBookings({ customerEmail: email }), fetchPayments()])
       .then(([bookingList, paymentList]) => {
         if (!cancelled) {
@@ -100,7 +98,7 @@ export default function CustomerOverview() {
           icon={CalendarClock}
           label="Total Requests"
           value={totalRequests}
-          iconClassName="bg-[#2563EB]/10 text-[#2563EB] dark:text-[#60A5FA]"
+          iconClassName="bg-[#2563EB]/10 text-[#2563EB] dark:text-[#3B82F6]"
         />
         <StatCard
           icon={Loader2}

@@ -30,7 +30,7 @@ function XLogo({ className }: { className?: string }) {
 
 export default function Footer() {
   return (
-    <footer className="border-t border-[#E5E7EB] bg-[#F3F4F6] text-gray-600 dark:border-white/10 dark:bg-[#111827] dark:text-gray-400">
+    <footer className="border-t border-[#E5E7EB] bg-[#F3F4F6] text-gray-600 dark:border-white/10 dark:bg-[#0F172A] dark:text-gray-400">
       <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 gap-10 sm:grid-cols-2 lg:grid-cols-4">
           {/* Brand & tagline */}

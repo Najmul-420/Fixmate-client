@@ -1,19 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import { RotateCcw, Search } from "lucide-react";
-import type { ServiceCategory, ServiceMode } from "@/lib/types";
-
-const CATEGORIES: ServiceCategory[] = [
-  "Smartphone",
-  "Laptop & PC",
-  "AC",
-  "Refrigerator",
-  "TV",
-  "Washing Machine",
-  "Electrical",
-];
-
-const SERVICE_MODES: ServiceMode[] = ["Home Visit", "Shop Drop-off"];
+import { SERVICE_CATEGORIES, SERVICE_MODES } from "@/lib/types";
 
 const SORT_OPTIONS = [
   { value: "newest", label: "Newest" },
@@ -65,7 +54,7 @@ export default function ServiceFilterBar({
           className={selectClasses}
         >
           <option value="">All Categories</option>
-          {CATEGORIES.map((item) => (
+          {SERVICE_CATEGORIES.map((item) => (
             <option key={item} value={item}>
               {item}
             </option>
@@ -109,14 +98,14 @@ export default function ServiceFilterBar({
             <Search className="size-4" />
             Apply
           </button>
-          <a
+          <Link
             href="/services"
             className="inline-flex h-10 items-center gap-1.5 rounded-lg border px-3 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
             title="Reset filters"
           >
             <RotateCcw className="size-4" />
             Reset
-          </a>
+          </Link>
         </div>
       </div>
     </form>

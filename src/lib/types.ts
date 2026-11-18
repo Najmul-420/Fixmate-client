@@ -102,7 +102,9 @@ export type Payment = {
 
 /** Admin-facing user record (BetterAuth user + role fields). */
 export type AdminUser = {
+  /** Mongo-style id; `id` is also accepted and normalized by the fetcher. */
   _id: string;
+  id?: string;
   name?: string;
   email: string;
   image?: string | null;

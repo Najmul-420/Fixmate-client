@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { ClipboardList, Loader2 } from "lucide-react";
 import { fetchBookings } from "@/lib/api";
 import { formatDate, formatPrice } from "@/lib/format";
@@ -28,20 +28,21 @@ export default function AdminBookings() {
   const [bookings, setBookings] = useState<Booking[] | null>(null);
   const [filter, setFilter] = useState<BookingStatus | "all">("all");
 
-  const loadBookings = useCallback(async () => {
-    setBookings(null);
-    const list = await fetchBookings();
-    setBookings(
-      [...list].sort(
-        (a, b) =>
-          new Date(b.createdAt ?? 0).getTime() - new Date(a.createdAt ?? 0).getTime()
-      )
-    );
-  }, []);
-
   useEffect(() => {
-    loadBookings();
-  }, [loadBookings]);
+    let cancelled = false;
+    fetchBookings().then((list) => {
+      if (cancelled) return;
+      setBookings(
+        [...list].sort(
+          (a, b) =>
+            new Date(b.createdAt ?? 0).getTime() - new Date(a.createdAt ?? 0).getTime()
+        )
+      );
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   if (bookings === null) {
     return (

@@ -267,8 +267,14 @@ export async function createCheckoutSession(
 
 /** All platform users (admin "Manage Users" + overview counts). */
 export async function fetchUsers(): Promise<AdminUser[]> {
-  const users = await fetchList<AdminUser>("/api/users", "Users API");
-  return users.filter((user) => Boolean(user?._id));
+  const users = await fetchList<AdminUser & { id?: string }>(
+    "/api/users",
+    "Users API"
+  );
+  // Accept either Mongo `_id` or BetterAuth `id` so no users are dropped.
+  return users
+    .filter((user) => Boolean(user?._id ?? user?.id))
+    .map((user) => ({ ...user, _id: user._id ?? user.id! }));
 }
 
 /**

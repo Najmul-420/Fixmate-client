@@ -29,9 +29,18 @@ const roleOptions: {
 ];
 
 const passwordRules = [
-  { label: "At least 6 characters", test: (value: string) => value.length >= 6 },
-  { label: "One uppercase letter", test: (value: string) => /[A-Z]/.test(value) },
-  { label: "One lowercase letter", test: (value: string) => /[a-z]/.test(value) },
+  {
+    label: "At least 6 characters",
+    test: (value: string) => value.length >= 6,
+  },
+  {
+    label: "One uppercase letter",
+    test: (value: string) => /[A-Z]/.test(value),
+  },
+  {
+    label: "One lowercase letter",
+    test: (value: string) => /[a-z]/.test(value),
+  },
 ];
 
 const inputClasses =
@@ -66,13 +75,15 @@ export default function SignUpForm() {
     if (!validate()) return;
     setIsSubmitting(true);
     try {
-      // NOTE: the BetterAuth server must declare `role` under
-      // `user.additionalFields` for this field to be persisted.
+      // The `role` custom field is declared in `src/lib/auth.ts` under
+      // `user.additionalFields`, so it is persisted on sign-up.
       const { error } = await authClient.$fetch("/sign-up/email", {
         body: { name: name.trim(), email: email.trim(), password, role },
       });
       if (error) {
-        toast.error(error.message ?? "Could not create your account. Please try again.");
+        toast.error(
+          error.message ?? "Could not create your account. Please try again.",
+        );
         return;
       }
       toast.success("Account created! Welcome to FixMate.");
@@ -88,15 +99,25 @@ export default function SignUpForm() {
   return (
     <div className="w-full max-w-md rounded-2xl border bg-card p-6 shadow-sm sm:p-8">
       <div className="flex flex-col gap-1.5 text-center">
-        <h1 className="text-2xl font-bold tracking-tight">Create your account</h1>
+        <h1 className="text-2xl font-bold tracking-tight">
+          Create your account
+        </h1>
         <p className="text-sm text-muted-foreground">
           Join FixMate as a customer or a verified technician.
         </p>
       </div>
 
-      <form onSubmit={handleSubmit} noValidate className="mt-6 flex flex-col gap-4">
+      <form
+        onSubmit={handleSubmit}
+        noValidate
+        className="mt-6 flex flex-col gap-4"
+      >
         {/* Role selection (radio cards) */}
-        <div role="radiogroup" aria-label="Account role" className="grid grid-cols-2 gap-3">
+        <div
+          role="radiogroup"
+          aria-label="Account role"
+          className="grid grid-cols-2 gap-3"
+        >
           {roleOptions.map((option) => {
             const selected = role === option.value;
             return (
@@ -110,19 +131,23 @@ export default function SignUpForm() {
                   "flex flex-col items-start gap-1 rounded-xl border p-3 text-left transition-all focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none",
                   selected
                     ? "border-primary bg-primary/5 ring-1 ring-primary"
-                    : "hover:bg-muted"
+                    : "hover:bg-muted",
                 )}
               >
                 <span
                   className={cn(
                     "flex size-8 items-center justify-center rounded-lg",
-                    selected ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+                    selected
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-muted text-muted-foreground",
                   )}
                 >
                   <option.icon className="size-4" />
                 </span>
                 <span className="text-sm font-semibold">{option.label}</span>
-                <span className="text-xs text-muted-foreground">{option.description}</span>
+                <span className="text-xs text-muted-foreground">
+                  {option.description}
+                </span>
               </button>
             );
           })}
@@ -138,7 +163,9 @@ export default function SignUpForm() {
             autoComplete="name"
             className={cn(inputClasses, errors.name && "border-destructive")}
           />
-          {errors.name && <span className="text-xs text-destructive">{errors.name}</span>}
+          {errors.name && (
+            <span className="text-xs text-destructive">{errors.name}</span>
+          )}
         </label>
 
         <label className="flex flex-col gap-1.5">
@@ -151,7 +178,9 @@ export default function SignUpForm() {
             autoComplete="email"
             className={cn(inputClasses, errors.email && "border-destructive")}
           />
-          {errors.email && <span className="text-xs text-destructive">{errors.email}</span>}
+          {errors.email && (
+            <span className="text-xs text-destructive">{errors.email}</span>
+          )}
         </label>
 
         <label className="flex flex-col gap-1.5">
@@ -163,7 +192,11 @@ export default function SignUpForm() {
               onChange={(event) => setPassword(event.target.value)}
               placeholder="Create a password"
               autoComplete="new-password"
-              className={cn(inputClasses, "pr-10", errors.password && "border-destructive")}
+              className={cn(
+                inputClasses,
+                "pr-10",
+                errors.password && "border-destructive",
+              )}
             />
             <button
               type="button"
@@ -171,7 +204,11 @@ export default function SignUpForm() {
               aria-label={showPassword ? "Hide password" : "Show password"}
               className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1 text-muted-foreground transition-colors hover:text-foreground"
             >
-              {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+              {showPassword ? (
+                <EyeOff className="size-4" />
+              ) : (
+                <Eye className="size-4" />
+              )}
             </button>
           </div>
           {errors.password && (
@@ -186,7 +223,7 @@ export default function SignUpForm() {
                   key={rule.label}
                   className={cn(
                     "flex items-center gap-1.5 text-xs",
-                    passed ? "text-[#059669]" : "text-muted-foreground"
+                    passed ? "text-primary" : "text-muted-foreground",
                   )}
                 >
                   <Check className={cn("size-3", !passed && "opacity-30")} />

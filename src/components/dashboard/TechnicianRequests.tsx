@@ -48,7 +48,6 @@ export default function TechnicianRequests() {
   const [amountError, setAmountError] = useState("");
 
   const loadBookings = useCallback(async (technicianEmail: string) => {
-    setBookings(null);
     const list = await fetchBookings({ technicianEmail });
     setBookings(
       [...list].sort(
@@ -60,8 +59,21 @@ export default function TechnicianRequests() {
 
   useEffect(() => {
     if (!email) return;
-    loadBookings(email);
-  }, [email, loadBookings]);
+    let cancelled = false;
+    fetchBookings({ technicianEmail: email }).then((list) => {
+      if (cancelled) return;
+      setBookings(
+        [...list].sort(
+          (a, b) =>
+            new Date(b.createdAt ?? 0).getTime() -
+            new Date(a.createdAt ?? 0).getTime()
+        )
+      );
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [email]);
 
   const setStatus = async (booking: Booking, status: BookingStatus) => {
     setBusyId(booking._id);
@@ -342,7 +354,7 @@ export default function TechnicianRequests() {
       {/* Final amount modal (Mark Completed) */}
       {completing && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-[#111827]/60 p-4 backdrop-blur-sm"
           onClick={() => setCompleting(null)}
           role="presentation"
         >

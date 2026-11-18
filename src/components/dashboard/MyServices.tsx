@@ -87,7 +87,6 @@ export default function MyServices() {
   const [deleting, setDeleting] = useState<Service | null>(null);
 
   const loadServices = useCallback(async (technicianEmail: string) => {
-    setServices(null);
     const list = await fetchServices({ technicianEmail });
     setServices(
       [...list].sort(
@@ -99,8 +98,21 @@ export default function MyServices() {
 
   useEffect(() => {
     if (!email) return;
-    loadServices(email);
-  }, [email, loadServices]);
+    let cancelled = false;
+    fetchServices({ technicianEmail: email }).then((list) => {
+      if (cancelled) return;
+      setServices(
+        [...list].sort(
+          (a, b) =>
+            new Date(b.createdAt ?? 0).getTime() -
+            new Date(a.createdAt ?? 0).getTime()
+        )
+      );
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [email]);
 
   const openEdit = (service: Service) => {
     setEditing(service);
@@ -312,7 +324,7 @@ export default function MyServices() {
       {/* Edit modal */}
       {editing && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-[#111827]/60 p-4 backdrop-blur-sm"
           onClick={() => setEditing(null)}
           role="presentation"
         >
@@ -378,7 +390,7 @@ export default function MyServices() {
       {/* Delete confirmation modal */}
       {deleting && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-[#111827]/60 p-4 backdrop-blur-sm"
           onClick={() => setDeleting(null)}
           role="presentation"
         >

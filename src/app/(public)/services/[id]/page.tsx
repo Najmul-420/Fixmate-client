@@ -102,7 +102,7 @@ async function ServiceDetails({ params }: Props) {
               <span className="rounded-full bg-muted px-3 py-1 text-xs font-medium text-muted-foreground">
                 {service.category}
               </span>
-              <span className="inline-flex items-center gap-1 rounded-full bg-[#2563EB]/10 px-3 py-1 text-xs font-medium text-[#2563EB] dark:bg-[#2563EB]/20 dark:text-[#60A5FA]">
+              <span className="inline-flex items-center gap-1 rounded-full bg-[#2563EB]/10 px-3 py-1 text-xs font-medium text-[#2563EB] dark:bg-[#2563EB]/20 dark:text-[#3B82F6]">
                 {service.serviceMode === "Home Visit" ? (
                   <House className="size-3" />
                 ) : (

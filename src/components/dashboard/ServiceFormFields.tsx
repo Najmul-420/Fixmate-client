@@ -83,7 +83,7 @@ export default function ServiceFormFields({
               onClick={onClearImage}
               aria-label="Remove image"
               disabled={disabled}
-              className="absolute right-2 top-2 rounded-lg bg-black/60 p-1.5 text-white transition-colors hover:bg-black/80"
+              className="absolute right-2 top-2 rounded-lg bg-[#111827]/70 p-1.5 text-white transition-colors hover:bg-[#111827]/85"
             >
               <X className="size-4" />
             </button>

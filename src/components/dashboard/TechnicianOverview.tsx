@@ -31,8 +31,6 @@ export default function TechnicianOverview() {
   useEffect(() => {
     if (!email) return;
     let cancelled = false;
-    setServices(null);
-    setBookings(null);
     Promise.all([
       fetchServices({ technicianEmail: email }),
       fetchBookings({ technicianEmail: email }),
@@ -100,7 +98,7 @@ export default function TechnicianOverview() {
           icon={Inbox}
           label="Incoming Requests"
           value={incomingRequests}
-          iconClassName="bg-[#2563EB]/10 text-[#2563EB] dark:text-[#60A5FA]"
+          iconClassName="bg-[#2563EB]/10 text-[#2563EB] dark:text-[#3B82F6]"
         />
         <StatCard
           icon={Wrench}

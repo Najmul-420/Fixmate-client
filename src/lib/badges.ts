@@ -7,7 +7,7 @@ import type { ApprovalStatus, BookingStatus } from "./types";
  */
 export const roleBadgeStyles: Record<UserRole, string> = {
   customer:
-    "bg-[#2563EB]/10 text-[#2563EB] dark:bg-[#2563EB]/20 dark:text-[#60A5FA]",
+    "bg-[#2563EB]/10 text-[#2563EB] dark:bg-[#2563EB]/20 dark:text-[#3B82F6]",
   technician:
     "bg-[#059669]/10 text-[#059669] dark:bg-[#10B981]/20 dark:text-[#34D399]",
   admin: "bg-violet-100 text-violet-700 dark:bg-violet-500/15 dark:text-violet-400",
@@ -30,7 +30,7 @@ export function roleLabel(role?: UserRole | null) {
 /** Badge styling per booking status (used across dashboard pages). */
 export const bookingStatusStyles: Record<BookingStatus, string> = {
   requested:
-    "bg-[#2563EB]/10 text-[#2563EB] dark:bg-[#2563EB]/20 dark:text-[#60A5FA]",
+    "bg-[#2563EB]/10 text-[#2563EB] dark:bg-[#2563EB]/20 dark:text-[#3B82F6]",
   accepted:
     "bg-indigo-100 text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-400",
   rejected: "bg-red-100 text-red-700 dark:bg-red-500/15 dark:text-red-400",

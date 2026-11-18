@@ -48,7 +48,7 @@ const trustPoints = [
 
 export default function WhyChooseUs() {
   return (
-    <section className="bg-[#111827] text-gray-300">
+    <section className="bg-[#111827] text-gray-300 dark:bg-[#1F2937]">
       <div className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-xl text-center">
           <h2 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">

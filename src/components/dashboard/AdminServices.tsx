@@ -43,7 +43,6 @@ export default function AdminServices() {
   const [busyId, setBusyId] = useState<string | null>(null);
 
   const loadServices = useCallback(async () => {
-    setServices(null);
     const list = await fetchServices();
     setServices(
       [...list].sort(
@@ -54,8 +53,20 @@ export default function AdminServices() {
   }, []);
 
   useEffect(() => {
-    loadServices();
-  }, [loadServices]);
+    let cancelled = false;
+    fetchServices().then((list) => {
+      if (cancelled) return;
+      setServices(
+        [...list].sort(
+          (a, b) =>
+            new Date(b.createdAt ?? 0).getTime() - new Date(a.createdAt ?? 0).getTime()
+        )
+      );
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const moderate = async (service: Service, status: ApprovalStatus) => {
     setBusyId(service._id);

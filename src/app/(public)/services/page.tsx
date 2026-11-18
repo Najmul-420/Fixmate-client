@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { connection } from "next/server";
 import { SlidersHorizontal } from "lucide-react";
 import {
   fetchApprovedServices,
@@ -18,6 +19,11 @@ function readParam(params: SearchParams, key: string): string {
 }
 
 async function ServicesResult({ searchParams }: { searchParams: SearchParams }) {
+  // Opt into dynamic rendering: the result list depends on the request's
+  // search params and on live backend data. Without this marker, Cache
+  // Components would prerender the fetch (whose timeout uses `Date.now()`).
+  await connection();
+
   const search = readParam(searchParams, "search");
   const category = readParam(searchParams, "category");
   const serviceMode = readParam(searchParams, "serviceMode");

@@ -33,7 +33,6 @@ export default function AdminUsers() {
   const [busyId, setBusyId] = useState<string | null>(null);
 
   const loadUsers = useCallback(async () => {
-    setUsers(null);
     const list = await fetchUsers();
     setUsers(
       [...list].sort((a, b) =>
@@ -43,8 +42,19 @@ export default function AdminUsers() {
   }, []);
 
   useEffect(() => {
-    loadUsers();
-  }, [loadUsers]);
+    let cancelled = false;
+    fetchUsers().then((list) => {
+      if (cancelled) return;
+      setUsers(
+        [...list].sort((a, b) =>
+          (a.name ?? a.email).localeCompare(b.name ?? b.email)
+        )
+      );
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const handleRoleChange = async (user: AdminUser, role: UserRole) => {
     if (!role || role === user.role) return;
@@ -79,8 +89,8 @@ export default function AdminUsers() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Manage Users</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            All platform accounts. Changing a role takes effect on the user's
-            next session.
+            All platform accounts. Changing a role takes effect on the
+            user&apos;s next session.
           </p>
         </div>
         <p className="text-sm text-muted-foreground">

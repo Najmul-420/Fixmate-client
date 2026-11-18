@@ -36,11 +36,11 @@ const themeInitScript = `
       document.documentElement.classList.toggle("dark", dark);
     };
     apply();
-    if (!stored) {
-      media.addEventListener("change", function (event) {
-        document.documentElement.classList.toggle("dark", event.matches);
-      });
-    }
+    // Follow OS changes only while the user has not chosen a theme.
+    media.addEventListener("change", function (event) {
+      if (localStorage.getItem("fixmate-theme")) return;
+      document.documentElement.classList.toggle("dark", event.matches);
+    });
   } catch (error) {}
 })();
 `;

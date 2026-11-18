@@ -53,6 +53,7 @@
      Primary emerald #059669 · Headings/text & dark surfaces #111827 ·
      Accent blue #2563EB · Page background #F9FAFB
      The .dark block and the theme-init script adapt these automatically. */
+  color-scheme: light;
   --background: #f9fafb;
   --foreground: #111827;
   --card: #ffffff;
@@ -88,19 +89,21 @@
 }
 
 .dark {
-  --background: #030712;
+  /* Dark palette: #111827 page background (never pure black), #1F2937 cards
+     for clean surface contrast, #F9FAFB text, brighter emerald primary
+     (#10B981) and #3B82F6 blue accents for legibility on dark surfaces. */
+  color-scheme: dark;
+  --background: #111827;
   --foreground: #f9fafb;
-  --card: #111827;
+  --card: #1f2937;
   --card-foreground: #f9fafb;
-  --popover: #111827;
+  --popover: #1f2937;
   --popover-foreground: #f9fafb;
-  /* Dark theme: a slightly brighter emerald (#10B981) keeps the primary
-     luminous and legible on dark surfaces. */
   --primary: #10b981;
   --primary-foreground: #ffffff;
   --secondary: #1f2937;
   --secondary-foreground: #f9fafb;
-  --muted: #1f2937;
+  --muted: #374151;
   --muted-foreground: #9ca3af;
   --accent: #1f2937;
   --accent-foreground: #f9fafb;
@@ -113,11 +116,11 @@
   --chart-3: oklch(0.439 0 0);
   --chart-4: oklch(0.371 0 0);
   --chart-5: oklch(0.269 0 0);
-  --sidebar: #111827;
+  --sidebar: #1f2937;
   --sidebar-foreground: #f9fafb;
   --sidebar-primary: #10b981;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #1f2937;
+  --sidebar-accent: #111827;
   --sidebar-accent-foreground: #f9fafb;
   --sidebar-border: rgb(255 255 255 / 10%);
   --sidebar-ring: #34d399;
@@ -128,7 +131,7 @@
     @apply border-border outline-ring/50;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground transition-colors duration-300;
   }
   html {
     @apply font-sans;

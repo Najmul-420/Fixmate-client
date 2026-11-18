@@ -3,13 +3,18 @@
 import { useEffect, useState } from "react";
 
 export default function CopyrightYear() {
-  // Next.js Cache Components requires reading the current time after hydration.
+  // Cache Components forbids reading the current time during prerender, and
+  // the hooks lint rule forbids synchronous setState in an effect — defer
+  // the read to a microtask, which runs right after hydration.
   const [year, setYear] = useState<number | null>(null);
 
   useEffect(() => {
-    setYear(new Date().getFullYear());
+    queueMicrotask(() => setYear(new Date().getFullYear()));
   }, []);
 
-  return <span>© {year ? `${year} ` : ""}FixMate. All rights reserved.</span>;
+  return (
+    <span suppressHydrationWarning>
+      © {year ? `${year} ` : ""}FixMate. All rights reserved.
+    </span>
+  );
 }
-

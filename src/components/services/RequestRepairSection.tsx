@@ -62,6 +62,11 @@ export default function RequestRepairSection({
   const updateField = (field: keyof FormState, value: string) => {
     setForm((prev) => ({ ...prev, [field]: value }));
     setErrors((prev) => ({ ...prev, [field]: undefined }));
+    // Clear a previous submission error as soon as the user edits the form.
+    if (status === "error") {
+      setStatus("idle");
+      setServerError("");
+    }
   };
 
   const validate = () => {
@@ -151,7 +156,7 @@ export default function RequestRepairSection({
       {/* Request form modal */}
       {open && user && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-[#111827]/60 p-4 backdrop-blur-sm"
           onClick={closeModal}
           role="presentation"
         >

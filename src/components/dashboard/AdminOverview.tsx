@@ -99,7 +99,7 @@ export default function AdminOverview() {
           icon={Users}
           label="Total Users"
           value={users.length}
-          iconClassName="bg-[#2563EB]/10 text-[#2563EB] dark:text-[#60A5FA]"
+          iconClassName="bg-[#2563EB]/10 text-[#2563EB] dark:text-[#3B82F6]"
         />
         <StatCard icon={FolderOpen} label="Total Services" value={services.length} />
         <StatCard

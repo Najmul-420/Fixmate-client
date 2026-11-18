@@ -14,13 +14,14 @@ import {
 } from "lucide-react";
 import { authClient, getDashboardPath, useSession, type FixMateUser, type UserRole } from "@/lib/auth-client";
 import { roleBadgeStyles } from "@/lib/badges";
+import ThemeToggle from "@/components/shared/ThemeToggle";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 const publicLinks = [
   { label: "Home", href: "/" },
   { label: "Services", href: "/services" },
-  { label: "How it Works", href: "/#how-it-works" },
+  { label: "How it Works", href: "/how-it-works" },
   { label: "About", href: "/about" },
 ];
 
@@ -100,10 +101,8 @@ export default function Navbar() {
   const [isSigningOut, setIsSigningOut] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
-  // Close the mobile menu whenever the route changes
-  useEffect(() => {
-    setMobileOpen(false);
-  }, [pathname]);
+  // Close the mobile menu whenever a navigation link is clicked (each link
+  // calls setMobileOpen(false) via its onClick handler).
 
   // Close the avatar dropdown on outside click or Escape
   useEffect(() => {
@@ -159,6 +158,7 @@ export default function Navbar() {
 
         {/* Desktop auth area */}
         <div className="hidden items-center gap-2 md:flex">
+          <ThemeToggle />
           {isPending ? (
             <div className="size-9 animate-pulse rounded-full bg-muted" />
           ) : user ? (
@@ -310,6 +310,14 @@ export default function Navbar() {
                 {link.label}
               </Link>
             ))}
+
+            {/* Theme toggle (mobile) */}
+            <div className="mt-1 flex items-center justify-between rounded-lg px-3 py-2">
+              <span className="text-sm font-medium text-muted-foreground">
+                Appearance
+              </span>
+              <ThemeToggle />
+            </div>
 
             <div className="mt-2 border-t pt-3">
               {isPending ? null : user ? (

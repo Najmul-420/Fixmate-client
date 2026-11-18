@@ -62,7 +62,7 @@ export default function AdminTransactions() {
           icon={ReceiptText}
           label="Transactions"
           value={payments.length}
-          iconClassName="bg-[#2563EB]/10 text-[#2563EB] dark:text-[#60A5FA]"
+          iconClassName="bg-[#2563EB]/10 text-[#2563EB] dark:text-[#3B82F6]"
         />
       </div>
 

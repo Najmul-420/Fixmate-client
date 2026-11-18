@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import {
   CircleAlert,
@@ -34,7 +33,6 @@ export default function CustomerBookings() {
 
   const loadBookings = useCallback(
     async (customerEmail: string) => {
-      setBookings(null);
       const list = await fetchBookings({ customerEmail });
       setBookings(
         [...list].sort(
@@ -49,8 +47,21 @@ export default function CustomerBookings() {
 
   useEffect(() => {
     if (!email) return;
-    loadBookings(email);
-  }, [email, loadBookings]);
+    let cancelled = false;
+    fetchBookings({ customerEmail: email }).then((list) => {
+      if (cancelled) return;
+      setBookings(
+        [...list].sort(
+          (a, b) =>
+            new Date(b.createdAt ?? 0).getTime() -
+            new Date(a.createdAt ?? 0).getTime()
+        )
+      );
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [email]);
 
   const handleCancelConfirmed = async () => {
     if (!cancelTarget) return;
@@ -236,7 +247,7 @@ export default function CustomerBookings() {
       {/* Cancel confirmation modal */}
       {cancelTarget && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-[#111827]/60 p-4 backdrop-blur-sm"
           onClick={() => setCancelTarget(null)}
           role="presentation"
         >

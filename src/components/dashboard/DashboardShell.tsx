@@ -26,6 +26,7 @@ import {
 import { toast } from "sonner";
 import { authClient, useSession, type FixMateUser, type UserRole } from "@/lib/auth-client";
 import { roleBadgeStyles, roleLabel } from "@/lib/badges";
+import ThemeToggle from "@/components/shared/ThemeToggle";
 import { cn } from "@/lib/utils";
 
 type NavItem = { label: string; href: string; icon: typeof House };
@@ -115,12 +116,7 @@ export default function DashboardShell({ children }: { children: ReactNode }) {
     segment === "technician" || segment === "admin" ? segment : "customer";
   const navItems = navByRole[role];
 
-  // Close the mobile drawer whenever the route changes.
-  useEffect(() => {
-    setMobileOpen(false);
-  }, [pathname]);
-
-  // Close the mobile drawer with Escape.
+  // Close the mobile drawer with Escape (links close it via onNavigate).
   useEffect(() => {
     if (!mobileOpen) return;
     const onKeyDown = (event: KeyboardEvent) => {
@@ -146,6 +142,7 @@ export default function DashboardShell({ children }: { children: ReactNode }) {
       {/* Logo */}
       <Link
         href="/"
+        onClick={() => setMobileOpen(false)}
         className={cn(
           "flex h-16 items-center gap-2.5 border-b px-5",
           collapsedMode && "justify-center px-2"
@@ -209,7 +206,7 @@ export default function DashboardShell({ children }: { children: ReactNode }) {
       {mobileOpen && (
         <div className="fixed inset-0 z-50 md:hidden" role="presentation">
           <div
-            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            className="absolute inset-0 bg-[#111827]/60 backdrop-blur-sm"
             onClick={() => setMobileOpen(false)}
           />
           <div className="absolute inset-y-0 left-0 w-64 border-r bg-background shadow-xl">
@@ -259,6 +256,7 @@ export default function DashboardShell({ children }: { children: ReactNode }) {
           </p>
 
           <div className="ml-auto flex items-center gap-3">
+            <ThemeToggle />
             {/* Avatar + name + role badge */}
             <Link
               href="/dashboard/profile"

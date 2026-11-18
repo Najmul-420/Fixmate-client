@@ -8,7 +8,7 @@ type StatCardProps = {
   value: string | number;
   /**
    * Tailwind classes for the icon badge tint, e.g.
-   * "bg-[#2563EB]/10 text-[#2563EB] dark:text-[#60A5FA]".
+   * "bg-[#2563EB]/10 text-[#2563EB] dark:text-[#3B82F6]".
    */
   iconClassName?: string;
   className?: string;
