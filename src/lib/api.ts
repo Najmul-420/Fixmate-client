@@ -154,6 +154,44 @@ export async function fetchApprovedServices(
     return [];
   }
 }
+
+/**
+ * Fetches all available services across statuses (approved, pending, etc.)
+ * for the public Services listing page.
+ */
+export async function fetchAllAvailableServices(
+  query: Omit<ServiceQuery, "limit"> = {},
+): Promise<Service[]> {
+  if (!API_ENABLED) return [];
+
+  const params = new URLSearchParams({ status: "all" });
+  if (query.search) params.set("search", query.search);
+  if (query.category) params.set("category", query.category);
+  if (query.serviceMode) params.set("serviceMode", query.serviceMode);
+  if (query.sort) params.set("sort", query.sort);
+
+  try {
+    const res = await fetch(`${API_BASE}/api/services?${params.toString()}`, {
+      headers: { "Content-Type": "application/json" },
+      cache: "no-store",
+      signal: AbortSignal.timeout(4_000),
+    });
+    if (!res.ok) return [];
+
+    const payload: unknown = await res.json();
+    const list: Service[] = toArray<Service>(payload);
+
+    const available = list.filter(
+      (service) => Boolean(service?._id) && service.isAvailable !== false,
+    );
+
+    return sortServices(available, query.sort);
+  } catch (error) {
+    console.warn("[FixMate] All services API unavailable:", error);
+    return [];
+  }
+}
+
 /**
  * All bookings, optionally scoped to one customer or technician.
  */

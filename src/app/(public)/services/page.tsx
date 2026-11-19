@@ -2,13 +2,13 @@ import { Suspense } from "react";
 import { connection } from "next/server";
 import { SlidersHorizontal } from "lucide-react";
 import {
-  fetchApprovedServices,
+  fetchAllAvailableServices,
   filterServices,
   sortServices,
 } from "@/lib/api";
 import EmptyState from "@/components/shared/EmptyState";
 import type { Service } from "@/lib/types";
-import ServiceCard from "@/components/home/ServiceCard";
+import PaginatedServicesGrid from "@/components/services/PaginatedServicesGrid";
 import ServiceFilterBar from "@/components/services/ServiceFilterBar";
 
 type SearchParams = Record<string, string | string[] | undefined>;
@@ -26,7 +26,8 @@ async function ServicesResult({ searchParams }: { searchParams: SearchParams }) 
   const serviceMode = readParam(searchParams, "serviceMode");
   const sort = readParam(searchParams, "sort") || "newest";
 
-  const fetched = await fetchApprovedServices({ sort });
+  // Approved + Pending সব available সার্ভিস আনা হচ্ছে
+  const fetched = await fetchAllAvailableServices({ sort });
 
   let services: Service[] = filterServices(fetched, {
     search,
@@ -36,6 +37,7 @@ async function ServicesResult({ searchParams }: { searchParams: SearchParams }) 
   services = sortServices(services, sort);
 
   const hasFilters = Boolean(search || category || serviceMode);
+  const filterKey = `${search}|${category}|${serviceMode}|${sort}`;
 
   return (
     <div className="space-y-5 sm:space-y-6">
@@ -56,14 +58,14 @@ async function ServicesResult({ searchParams }: { searchParams: SearchParams }) 
         )}
       </div>
 
-      {/* Grid: 1 col phone, 2 cols tablet, 3 cols laptop & desktop */}
+      {/* 6-item pagination grid */}
       {services.length === 0 ? (
         <EmptyState
           title="No services match your search"
           description={
             hasFilters
               ? "Try a different keyword or clear some filters — new services are added by technicians all the time."
-              : "No approved services have been published yet. Please check back soon."
+              : "No services have been published yet. Please check back soon."
           }
           action={
             hasFilters
@@ -72,11 +74,7 @@ async function ServicesResult({ searchParams }: { searchParams: SearchParams }) 
           }
         />
       ) : (
-        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 sm:gap-6 lg:grid-cols-3">
-          {services.map((service) => (
-            <ServiceCard key={service._id} service={service} />
-          ))}
-        </div>
+        <PaginatedServicesGrid services={services} filterKey={filterKey} />
       )}
     </div>
   );
@@ -98,7 +96,7 @@ function ServicesResultSkeleton() {
 export const metadata = {
   title: "Browse Services | FixMate",
   description:
-    "Browse approved repair services from verified technicians — filter by category, service mode and price.",
+    "Browse repair services from technicians — filter by category, service mode and price.",
 };
 
 export default function BrowseServicesPage({
@@ -114,8 +112,8 @@ export default function BrowseServicesPage({
           Browse Services
         </h1>
         <p className="mt-2 text-sm text-muted-foreground sm:text-base">
-          Find trusted repair services for every device — searched, filtered
-          and sorted on the server.
+          Find repair services for every device — searched, filtered and sorted
+          in batches of 6.
         </p>
       </div>
 
