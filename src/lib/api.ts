@@ -14,15 +14,8 @@ import type { UserRole } from "./auth-client";
  */
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:5000";
 
-/**
- * The Express backend is not built yet. While disabled, every read resolves
- * immediately with an empty result and no network request is attempted, so
- * the UI runs on local state alone.
- *
- * TODO: Connect API — set this to `true` (and configure
- * NEXT_PUBLIC_API_BASE_URL) once the backend is available.
- */
-const API_ENABLED = false;
+/** Express backend base URL — set NEXT_PUBLIC_API_BASE_URL in .env to override. */
+const API_ENABLED = true;
 
 /**
  * Extracts an array from a backend payload whether it responds with a bare
@@ -30,16 +23,35 @@ const API_ENABLED = false;
  */
 function toArray<T>(payload: unknown): T[] {
   if (Array.isArray(payload)) return payload as T[];
-  const data = (payload as { data?: unknown } | null)?.data;
-  return Array.isArray(data) ? (data as T[]) : [];
+  // Handle { services: [...] }, { bookings: [...] }, { users: [...] } etc.
+  if (payload && typeof payload === "object") {
+    for (const key of ["services", "bookings", "payments", "users", "data"]) {
+      const val = (payload as Record<string, unknown>)[key];
+      if (Array.isArray(val)) return val as T[];
+    }
+  }
+  return [];
+}
+
+/** Session headers read from the Next.js BetterAuth session for Express auth. */
+export function sessionHeaders(email: string, role: string): Record<string, string> {
+  return {
+    "Content-Type": "application/json",
+    "x-user-email": email,
+    "x-user-role": role,
+  };
 }
 
 /** Unified GET helper: fails fast (4s) and always resolves to an array. */
-async function fetchList<T>(path: string, warnLabel: string): Promise<T[]> {
+async function fetchList<T>(
+  path: string,
+  warnLabel: string,
+  extraHeaders?: Record<string, string>
+): Promise<T[]> {
   if (!API_ENABLED) return [];
   try {
     const res = await fetch(`${API_BASE}${path}`, {
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...extraHeaders },
       credentials: "include",
       cache: "no-store",
       // Fail fast when the backend is not running instead of hanging the page.
@@ -135,13 +147,19 @@ export async function fetchBookings(scope: {
  * server-side. Returns the created service, or `null` on failure.
  */
 export async function createService(
-  input: Omit<Service, "_id" | "approvalStatus"> & { approvalStatus?: ApprovalStatus }
+  input: Omit<Service, "_id" | "approvalStatus"> & { approvalStatus?: ApprovalStatus },
+  session?: { email: string; role: string }
 ): Promise<Service | null> {
   if (!API_ENABLED) return null;
   try {
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    if (session) {
+      headers["x-user-email"] = session.email;
+      headers["x-user-role"] = session.role;
+    }
     const res = await fetch(`${API_BASE}/api/services`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers,
       credentials: "include",
       signal: AbortSignal.timeout(8_000),
       body: JSON.stringify(input),
@@ -150,7 +168,7 @@ export async function createService(
 
     const payload: unknown = await res.json();
     const service = (
-      Array.isArray(payload) ? undefined : (payload as { data?: Service }).data
+      Array.isArray(payload) ? undefined : (payload as { data?: Service; service?: Service }).data ?? (payload as { service?: Service }).service
     ) ?? (payload as Service);
     return service?._id ? service : null;
   } catch (error) {
@@ -165,13 +183,19 @@ export async function createService(
  */
 export async function updateService(
   serviceId: string,
-  patch: Partial<Service>
+  patch: Partial<Service>,
+  session?: { email: string; role: string }
 ): Promise<boolean> {
   if (!API_ENABLED) return false;
   try {
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    if (session) {
+      headers["x-user-email"] = session.email;
+      headers["x-user-role"] = session.role;
+    }
     const res = await fetch(`${API_BASE}/api/services/${serviceId}`, {
       method: "PATCH",
-      headers: { "Content-Type": "application/json" },
+      headers,
       credentials: "include",
       signal: AbortSignal.timeout(8_000),
       body: JSON.stringify(patch),
@@ -184,11 +208,20 @@ export async function updateService(
 }
 
 /** Deletes a service (technician action). Returns true when confirmed. */
-export async function deleteService(serviceId: string): Promise<boolean> {
+export async function deleteService(
+  serviceId: string,
+  session?: { email: string; role: string }
+): Promise<boolean> {
   if (!API_ENABLED) return false;
   try {
+    const headers: Record<string, string> = {};
+    if (session) {
+      headers["x-user-email"] = session.email;
+      headers["x-user-role"] = session.role;
+    }
     const res = await fetch(`${API_BASE}/api/services/${serviceId}`, {
       method: "DELETE",
+      headers,
       credentials: "include",
       signal: AbortSignal.timeout(8_000),
     });
@@ -207,13 +240,19 @@ export async function deleteService(serviceId: string): Promise<boolean> {
 export async function updateBookingStatus(
   bookingId: string,
   status: BookingStatus,
-  finalAmount?: number
+  finalAmount?: number,
+  session?: { email: string; role: string }
 ): Promise<boolean> {
   if (!API_ENABLED) return false;
   try {
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    if (session) {
+      headers["x-user-email"] = session.email;
+      headers["x-user-role"] = session.role;
+    }
     const res = await fetch(`${API_BASE}/api/bookings/${bookingId}`, {
       method: "PATCH",
-      headers: { "Content-Type": "application/json" },
+      headers,
       credentials: "include",
       signal: AbortSignal.timeout(8_000),
       body: JSON.stringify(
@@ -228,8 +267,12 @@ export async function updateBookingStatus(
 }
 
 /** All Stripe payment records (customer history / admin transactions). */
-export async function fetchPayments(): Promise<Payment[]> {
-  const payments = await fetchList<Payment>("/api/payments", "Payments API");
+export async function fetchPayments(scope: { customerEmail?: string; technicianEmail?: string } = {}): Promise<Payment[]> {
+  const params = new URLSearchParams();
+  if (scope.customerEmail) params.set("customerEmail", scope.customerEmail);
+  if (scope.technicianEmail) params.set("technicianEmail", scope.technicianEmail);
+  const qs = params.toString();
+  const payments = await fetchList<Payment>(`/api/payments${qs ? `?${qs}` : ""}`, "Payments API");
   return payments.filter((payment) => Boolean(payment?._id));
 }
 
@@ -237,12 +280,20 @@ export async function fetchPayments(): Promise<Payment[]> {
  * Cancels a pending booking (customer action, only valid while the job is
  * still `requested`). PATCHes the status server-side.
  */
-export async function cancelBooking(bookingId: string): Promise<boolean> {
+export async function cancelBooking(
+  bookingId: string,
+  session?: { email: string; role: string }
+): Promise<boolean> {
   if (!API_ENABLED) return false;
   try {
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    if (session) {
+      headers["x-user-email"] = session.email;
+      headers["x-user-role"] = session.role;
+    }
     const res = await fetch(`${API_BASE}/api/bookings/${bookingId}`, {
       method: "PATCH",
-      headers: { "Content-Type": "application/json" },
+      headers,
       credentials: "include",
       signal: AbortSignal.timeout(8_000),
       body: JSON.stringify({ status: "cancelled" }),
@@ -251,6 +302,47 @@ export async function cancelBooking(bookingId: string): Promise<boolean> {
   } catch (error) {
     console.warn("[FixMate] Booking cancel failed:", error);
     return false;
+  }
+}
+
+/**
+ * Creates a new booking (customer action).
+ * Returns { success: true } or throws with an error message.
+ */
+export async function createBooking(
+  input: {
+    serviceId: string;
+    customerPhone: string;
+    address: string;
+    preferredDate: string;
+    problemDescription: string;
+  },
+  session: { email: string; role: string; name?: string }
+): Promise<{ success: boolean; message?: string }> {
+  if (!API_ENABLED) return { success: true }; // placeholder fallback
+  try {
+    const res = await fetch(`${API_BASE}/api/bookings`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-user-email": session.email,
+        "x-user-role": session.role,
+      },
+      credentials: "include",
+      signal: AbortSignal.timeout(8_000),
+      body: JSON.stringify(input),
+    });
+    const payload: unknown = await res.json();
+    if (!res.ok) {
+      const msg =
+        (payload as { message?: string } | null)?.message ??
+        "Failed to submit booking.";
+      return { success: false, message: msg };
+    }
+    return { success: true };
+  } catch (error) {
+    console.warn("[FixMate] Create booking failed:", error);
+    return { success: false, message: "Network error. Please try again." };
   }
 }
 
@@ -302,13 +394,19 @@ export async function fetchUsers(): Promise<AdminUser[]> {
  */
 export async function updateUserRole(
   userId: string,
-  role: UserRole
+  role: UserRole,
+  session?: { email: string; role: string }
 ): Promise<boolean> {
   if (!API_ENABLED) return false;
   try {
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    if (session) {
+      headers["x-user-email"] = session.email;
+      headers["x-user-role"] = session.role;
+    }
     const res = await fetch(`${API_BASE}/api/users/${userId}`, {
       method: "PATCH",
-      headers: { "Content-Type": "application/json" },
+      headers,
       credentials: "include",
       signal: AbortSignal.timeout(8_000),
       body: JSON.stringify({ role }),
@@ -316,6 +414,36 @@ export async function updateUserRole(
     return res.ok;
   } catch (error) {
     console.warn("[FixMate] Role update failed:", error);
+    return false;
+  }
+}
+
+/**
+ * Updates a service approval status (admin moderation action).
+ * Returns true when the backend confirms the change.
+ */
+export async function updateServiceApproval(
+  serviceId: string,
+  approvalStatus: "approved" | "rejected",
+  session?: { email: string; role: string }
+): Promise<boolean> {
+  if (!API_ENABLED) return false;
+  try {
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    if (session) {
+      headers["x-user-email"] = session.email;
+      headers["x-user-role"] = session.role;
+    }
+    const res = await fetch(`${API_BASE}/api/services/${serviceId}`, {
+      method: "PATCH",
+      headers,
+      credentials: "include",
+      signal: AbortSignal.timeout(8_000),
+      body: JSON.stringify({ approvalStatus }),
+    });
+    return res.ok;
+  } catch (error) {
+    console.warn("[FixMate] Service approval update failed:", error);
     return false;
   }
 }
@@ -340,6 +468,43 @@ export async function fetchServices(scope: { technicianEmail?: string } = {}): P
 export async function getFeaturedServices(limit = 6): Promise<Service[]> {
   const services = await fetchApprovedServices({ sort: "newest", limit });
   return sortServices(services, "newest").slice(0, limit);
+}
+
+/** Fetches services grouped by category/section from the backend.
+ *  Returns a record where keys are category names and values are arrays of services.
+ *  Example: { Smartphone: [...], Laptop & PC: [...], ... }
+ */
+export async function fetchSectionWiseServices(): Promise<Record<string, Service[]>> {
+  if (!API_ENABLED) return {};
+  try {
+    const res = await fetch(`${API_BASE}/api/services/section-wise`, {
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      cache: "no-store",
+      signal: AbortSignal.timeout(8_000),
+    });
+    if (!res.ok) return {};
+    const payload: unknown = await res.json();
+    
+    if (payload && payload.sections && typeof payload.sections === "object") {
+      // Convert to Record<string, Service[]>
+      const sections: Record<string, Service[]> = {};
+      Object.entries(payload.sections as Record<string, any>).forEach(([category, services]: [string, any[]]) => {
+        const filtered = services.filter(
+          (s: any) => Boolean(s?._id) && s.approvalStatus === "approved" && s.isAvailable !== false
+        );
+        if (filtered.length > 0) {
+          sections[category] = filtered;
+        }
+      });
+      return sections;
+    }
+    
+    return {};
+  } catch (error) {
+    console.warn("[FixMate] Section-wise services API unavailable:", error);
+    return {};
+  }
 }
 
 /**

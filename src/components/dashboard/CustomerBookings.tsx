@@ -9,9 +9,8 @@ import {
   X,
 } from "lucide-react";
 import { toast } from "sonner";
-import { useSession } from "@/lib/auth-client";
-import { fetchBookings } from "@/lib/api";
-import { simulateRequest } from "@/lib/placeholder";
+import { useSession, type FixMateUser } from "@/lib/auth-client";
+import { cancelBooking, createCheckoutSession, fetchBookings } from "@/lib/api";
 import { formatDate, formatPrice } from "@/lib/format";
 import type { Booking, BookingStatus } from "@/lib/types";
 import StatusBadge from "@/components/dashboard/StatusBadge";
@@ -33,13 +32,11 @@ const FILTERS: { value: BookingStatus | "all"; label: string }[] = [
  * Customer "My Bookings": every booking the signed-in customer made, with
  * status + payment badges, a status filter, a Cancel action for still-pending
  * requests, and a Pay Now (Stripe Checkout) action for completed-unpaid jobs.
- *
- * Cancellation updates local state; checkout is a placeholder until the
- * backend and Stripe keys are connected.
  */
 export default function CustomerBookings() {
   const { data: session, isPending } = useSession();
-  const email = session?.user?.email ?? null;
+  const user = session?.user as FixMateUser | undefined;
+  const email = user?.email ?? null;
 
   const [bookings, setBookings] = useState<Booking[] | null>(null);
   const [filter, setFilter] = useState<BookingStatus | "all">("all");
@@ -71,14 +68,20 @@ export default function CustomerBookings() {
   };
 
   const handleCancelConfirmed = async () => {
-    if (!cancelTarget) return;
+    if (!cancelTarget || !user) return;
     setBusyId(cancelTarget._id);
     try {
-      // TODO: Connect API — PATCH /api/bookings/:id/cancel
-      await simulateRequest(400);
-      patchBooking(cancelTarget._id, { status: "cancelled" });
-      toast.success("Booking cancelled.");
-      setCancelTarget(null);
+      const ok = await cancelBooking(cancelTarget._id, {
+        email: user.email,
+        role: user.role ?? "customer",
+      });
+      if (ok) {
+        patchBooking(cancelTarget._id, { status: "cancelled" });
+        toast.success("Booking cancelled.");
+        setCancelTarget(null);
+      } else {
+        toast.error("Failed to cancel booking. Please try again.");
+      }
     } finally {
       setBusyId(null);
     }
@@ -87,12 +90,12 @@ export default function CustomerBookings() {
   const handlePayNow = async (booking: Booking) => {
     setBusyId(booking._id);
     try {
-      // TODO: Connect API — POST /api/payments/checkout-session, then redirect
-      // the browser to the returned Stripe Checkout URL.
-      await simulateRequest(350);
-      toast.info(
-        "Stripe Checkout isn’t connected yet — you’ll be able to pay this booking once the backend is live."
-      );
+      const url = await createCheckoutSession(booking._id);
+      if (url) {
+        window.location.href = url;
+      } else {
+        toast.error("Payment system not available right now. Please try again later.");
+      }
     } finally {
       setBusyId(null);
     }
@@ -102,7 +105,7 @@ export default function CustomerBookings() {
     return (
       <div className="flex items-center gap-3 py-24 text-sm text-muted-foreground">
         <Loader2 className="size-4 animate-spin" />
-        Loading your bookings…
+        Loading your bookings&hellip;
       </div>
     );
   }

@@ -93,10 +93,15 @@ export default function SignUpForm() {
     if (isSubmitting || !validate() || !role) return;
     setIsSubmitting(true);
     try {
-      // The `role` custom field is declared in `src/lib/auth.ts` under
-      // `user.additionalFields`, so it is persisted on sign-up.
-      const { error } = await authClient.$fetch("/sign-up/email", {
-        body: { name: name.trim(), email: email.trim(), password, role },
+      // Use the typed BetterAuth sign-up helper: it performs a POST to
+      // `/api/auth/sign-up/email` and returns `{ data, error }` instead of
+      // throwing. The `role` custom field is declared in `src/lib/auth.ts`
+      // under `user.additionalFields`, so it is persisted on sign-up.
+      const { error } = await authClient.signUp.email({
+        name: name.trim(),
+        email: email.trim(),
+        password,
+        role,
       });
       if (error) {
         toast.error(
@@ -107,7 +112,8 @@ export default function SignUpForm() {
       toast.success("Account created! Welcome to FixMate.");
       router.push(getDashboardPath(role));
       router.refresh();
-    } catch {
+    } catch (error) {
+      console.error("[sign-up]", error);
       toast.error("Something went wrong. Please try again later.");
     } finally {
       setIsSubmitting(false);

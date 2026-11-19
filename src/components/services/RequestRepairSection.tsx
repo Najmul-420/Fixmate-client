@@ -6,7 +6,7 @@ import { useState } from "react";
 import { CircleCheck, Info, Loader2, X } from "lucide-react";
 import { toast } from "sonner";
 import { useSession, type FixMateUser } from "@/lib/auth-client";
-import { simulateRequest } from "@/lib/placeholder";
+import { createBooking } from "@/lib/api";
 import { todayInputValue } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import Modal from "@/components/shared/Modal";
@@ -95,13 +95,26 @@ export default function RequestRepairSection({
 
     setStatus("submitting");
     try {
-      // TODO: Connect API — POST /api/bookings with
-      // { serviceId, customerPhone, address, preferredDate, problemDescription }.
-      await simulateRequest(600);
+      const result = await createBooking(
+        {
+          serviceId,
+          customerPhone: form.phone,
+          address: form.address,
+          preferredDate: form.preferredDate,
+          problemDescription: form.problemDescription,
+        },
+        { email: user!.email, role: user!.role ?? "customer", name: user!.name }
+      );
+      if (!result.success) {
+        toast.error(result.message ?? "Failed to submit request.");
+        setStatus("idle");
+        return;
+      }
       toast.success("Repair request sent to the technician.");
       setStatus("success");
-    } finally {
-      setStatus((current) => (current === "submitting" ? "idle" : current));
+    } catch {
+      toast.error("Something went wrong. Please try again.");
+      setStatus("idle");
     }
   };
 
