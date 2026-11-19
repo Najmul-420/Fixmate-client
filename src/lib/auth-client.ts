@@ -1,12 +1,14 @@
 import { createAuthClient } from "better-auth/react";
 import { inferAdditionalFields } from "better-auth/client/plugins";
-// Type-only import: brings the shape of the custom `role` field into the
-// client without pulling the server auth config (MongoDB) into the bundle.
 import type { auth } from "./auth";
 
 export const authClient = createAuthClient({
-  // Same-origin by default (BetterAuth is served from /api/auth in this app).
-  baseURL: process.env.NEXT_PUBLIC_BETTER_AUTH_URL,
+ 
+  baseURL: process.env.NEXT_PUBLIC_BETTER_AUTH_URL || "http://localhost:3000",
+  
+  fetchOptions: {
+    credentials: "include",
+  },
   plugins: [inferAdditionalFields<typeof auth>()],
 });
 
